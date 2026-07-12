@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  telegramChatId String?
+  isVerified     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  jobs          Job[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Job {
+  id                  String    @id @default(cuid())
+  userId              String
+  keyword             String
+  city                String
+  country             String    @default("NG")
+  radius              Int       @default(10)
+  maxResults          Int       @default(100)
+  status              JobStatus @default(PENDING)
+  progress            Int       @default(0)
+  totalBusinesses     Int       @default(0)
+  qualifiedBusinesses Int       @default(0)
+  leadScoreThreshold  Int       @default(50)
+  useEmailEnrichment  Boolean   @default(false)
+  telegramDestination String?
+  errorMessage        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  completedAt         DateTime?
+
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businesses Business[]
+  jobProgress JobProgress?
+  workerLogs  WorkerLog[]
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("jobs")
+}
+
+model JobProgress {
+  jobId              String   @id
+  lastProcessedPlace String?
+  currentPage        Int      @default(0)
+  processedCount     Int      @default(0)
+  updatedAt          DateTime @updatedAt
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_progress")
+}
+
+model Business {
+  id          String     @id @default(cuid())
+  placeId     String
+  jobId       String
+  name        String
+  phone       String?
+  whatsapp    String?
+  email       String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  website     String?
+  hasWebsite  Boolean    @default(false)
+  category    String?
+  rating      Float?
+  reviewCount Int?
+  mapsUrl     String?
+  leadScore   Int        @default(0)
+  status      LeadStatus @default(DISCOVERED)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  job          Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  telegramLogs TelegramLog[]
+
+  @@unique([placeId, jobId])
+  @@index([jobId, status])
+  @@index([jobId, hasWebsite])
+  @@index([placeId])
+  @@map("businesses")
+}
+
+model TelegramLog {
+  id         String   @id @default(cuid())
+  businessId String
+  chatId     String
+  sentAt     DateTime @default(now())
+  success    Boolean
+  retryCount Int      @default(0)
+  error      String?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_logs")
+}
+
+model WorkerLog {
+  id         String   @id @default(cuid())
+  workerName String
+  jobId      String?
+  duration   Int
+  status     String
+  retries    Int      @default(0)
+  message    String?
+  createdAt  DateTime @default(now())
+
+  job Job? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@map("worker_logs")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum LeadStatus {
+  DISCOVERED
+  WEBSITE_CHECKED
+  EMAIL_ENRICHED
+  QUALIFIED
+  SENT_TO_TELEGRAM
+  EXPORTED
+  ARCHIVED
+}

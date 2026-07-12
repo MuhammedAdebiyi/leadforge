@@ -1,0 +1,21 @@
+export const JOB_STATUS = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  PAUSED: 'PAUSED',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
+} as const
+
+export const LEAD_STATUS = {
+  DISCOVERED: 'DISCOVERED',
+  WEBSITE_CHECKED: 'WEBSITE_CHECKED',
+  EMAIL_ENRICHED: 'EMAIL_ENRICHED',
+  QUALIFIED: 'QUALIFIED',
+  SENT_TO_TELEGRAM: 'SENT_TO_TELEGRAM',
+  EXPORTED: 'EXPORTED',
+  ARCHIVED: 'ARCHIVED',
+} as const
+
+export type JobStatus = (typeof JOB_STATUS)[keyof typeof JOB_STATUS]
+export type LeadStatus = (typeof LEAD_STATUS)[keyof typeof LEAD_STATUS]
