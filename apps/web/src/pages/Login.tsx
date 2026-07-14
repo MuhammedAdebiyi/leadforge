@@ -54,7 +54,7 @@ export function Login() {
             className="font-display font-bold text-ink tracking-tight flex items-center gap-1.5"
           >
             <Star size={14} className="text-gold" fill="currentColor" strokeWidth={0} />
-            MAPS LEAD SCRAPER
+            Lead Forge
           </button>
           <button
             onClick={() => setMode(m => m === 'login' ? 'register' : 'login')}
@@ -105,7 +105,7 @@ export function Login() {
           </div>
 
           <p className="text-2xs font-mono text-ink-muted uppercase tracking-widest">
-            Maps Lead Scraper · Built for agencies
+            Lead Forge
           </p>
         </div>
 
@@ -117,7 +117,7 @@ export function Login() {
             <div className="lg:hidden flex items-center gap-1.5 mb-8">
               <Star size={14} className="text-gold" fill="currentColor" strokeWidth={0} />
               <span className="font-display font-bold text-ink text-sm uppercase tracking-tight">
-                Maps Lead Scraper
+                Lead Forge
               </span>
             </div>
 

@@ -184,7 +184,7 @@ function Navbar() {
           className="font-display font-bold text-ink tracking-tight flex items-center gap-1.5"
         >
           <Star size={14} className="text-gold" fill="currentColor" strokeWidth={0} />
-          MAPS LEAD SCRAPER
+          Lead Forge
         </button>
 
         <nav className="hidden md:flex items-center gap-7">
