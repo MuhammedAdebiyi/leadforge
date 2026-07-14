@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs'
-import { prisma } from '../../lib/prisma'
-import { redis, TTL } from '../../lib/redis/client'
-import { logger } from '../../lib/logger'
+import { prisma, redis, TTL, createLogger } from '@leadforge/shared'
 import type { RegisterInput, LoginInput } from '@leadforge/shared'
 import type { FastifyInstance } from 'fastify'
+
+const logger = createLogger('auth-service')
 
 export class AuthService {
   constructor(private fastify: FastifyInstance) {}
@@ -40,8 +40,9 @@ export class AuthService {
 
   async refreshTokens(token: string) {
     const stored = await prisma.refreshToken.findUnique({ where: { token }, include: { user: true } })
-    if (!stored || stored.expiresAt < new Date()) throw { statusCode: 401, message: 'Invalid or expired refresh token' }
-
+    if (!stored || stored.expiresAt < new Date()) {
+      throw { statusCode: 401, message: 'Invalid or expired refresh token' }
+    }
     await prisma.refreshToken.delete({ where: { token } })
     return this.generateTokens(stored.userId)
   }

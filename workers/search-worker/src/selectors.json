@@ -1,0 +1,21 @@
+{
+  "search": {
+    "resultsContainer": "[role='feed']",
+    "resultItem": "[role='feed'] > div",
+    "scrollContainer": "[role='feed']",
+    "loadingSpinner": ".section-loading-spinner"
+  },
+  "listing": {
+    "name": "h1.DUwDvf",
+    "category": "button.DkEaL",
+    "address": "button[data-item-id='address'] .Io6YTe",
+    "phone": "button[data-item-id^='phone'] .Io6YTe",
+    "website": "a[data-item-id='authority']",
+    "websiteHref": "a[data-item-id='authority']",
+    "rating": "div.F7nice span[aria-hidden='true']",
+    "reviewCount": "div.F7nice span[aria-label*='reviews']",
+    "placeId": null
+  },
+  "searchUrl": "https://www.google.com/maps/search/{query}/@{lat},{lng},{zoom}z",
+  "defaultLocation": { "lat": 6.5244, "lng": 3.3792, "zoom": 13 }
+}

@@ -1,7 +1,6 @@
-import { prisma } from '../../lib/prisma'
-import { publishToQueue } from '../../lib/rabbitmq/client'
-import { QUEUES } from '@leadforge/shared'
-import { logger } from '../../lib/logger'
+import { prisma, publish, QUEUES, createLogger } from '@leadforge/shared'
+
+const logger = createLogger('businesses-service')
 
 export class BusinessesService {
   async getBusinesses(userId: string, opts: { jobId?: string; status?: string; hasWebsite?: boolean; page: number; limit: number }) {
@@ -36,7 +35,7 @@ export class BusinessesService {
   async exportBusinesses(userId: string, jobId: string, format: 'csv' | 'excel') {
     const job = await prisma.job.findFirst({ where: { id: jobId, userId } })
     if (!job) throw { statusCode: 404, message: 'Job not found' }
-    await publishToQueue(QUEUES.EXPORT, { jobId, userId, format })
+    publish(QUEUES.EXPORT, { jobId, userId, format })
     return { message: 'Export queued — you will be notified via Telegram when ready.' }
   }
 
@@ -47,7 +46,7 @@ export class BusinessesService {
     })
     if (!b) throw { statusCode: 404, message: 'Business not found' }
     if (!b.job.telegramDestination) throw { statusCode: 400, message: 'No Telegram destination on this job' }
-    await publishToQueue(QUEUES.TELEGRAM, { businessId, chatId: b.job.telegramDestination, retryCount: 0 })
+    publish(QUEUES.TELEGRAM, { businessId, chatId: b.job.telegramDestination, retryCount: 0 })
     return { message: 'Queued for Telegram delivery' }
   }
 }

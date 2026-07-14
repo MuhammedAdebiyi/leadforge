@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { font-size: 15px; }
+
+  body {
+    background: #0a0a0a;
+    color: #f5f4f0;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scrollbar-width: thin;
+    scrollbar-color: #2e2e2e transparent;
+  }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2e2e2e; border-radius: 99px; }
+
+  ::selection { background: #22d3a520; color: #22d3a5; }
+}
+
+@layer components {
+  /* Cards */
+  .card {
+    background: #111111;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+  }
+
+  .card-flat {
+    background: #111111;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center gap-2 font-medium transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed text-sm rounded-lg px-4 py-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-chalk text-ink hover:bg-chalk-1 active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply btn text-chalk-dim hover:text-chalk hover:bg-ink-3 border border-transparent hover:border-white/10;
+  }
+
+  .btn-signal {
+    @apply btn bg-signal/10 text-signal border border-signal/20 hover:bg-signal/15;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger/10 text-danger border border-danger/20 hover:bg-danger/15;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full bg-ink-2 border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm
+           text-chalk placeholder-chalk-muted outline-none
+           focus:border-chalk-dim/40 focus:ring-1 focus:ring-chalk-dim/20
+           transition-all duration-150;
+  }
+
+  .label {
+    @apply block text-2xs font-semibold text-chalk-muted uppercase tracking-widest mb-2;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-2xs font-semibold uppercase tracking-wide;
+  }
+
+  /* Divider */
+  .rule { @apply border-white/[0.07]; }
+}
