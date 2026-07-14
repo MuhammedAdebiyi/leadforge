@@ -1,12 +1,19 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Briefcase, Building2, Settings, Zap, LogOut } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Briefcase,
+  Building2,
+  Settings,
+  Star,
+  LogOut,
+} from 'lucide-react'
 import { cn } from '../ui'
 import { useAuthStore } from '../../stores/auth'
 
 const NAV = [
-  { to: '/',       icon: LayoutDashboard, label: 'Overview' },
-  { to: '/jobs',   icon: Briefcase,       label: 'Jobs' },
-  { to: '/leads',  icon: Building2,       label: 'Leads' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
+  { to: '/jobs', icon: Briefcase, label: 'Jobs' },
+  { to: '/leads', icon: Building2, label: 'Leads' },
 ]
 
 export function Sidebar() {
@@ -15,67 +22,99 @@ export function Sidebar() {
   const navigate = useNavigate()
 
   return (
-    <aside className="w-52 border-r rule flex flex-col h-screen sticky top-0 bg-ink-1">
+    <aside className="w-64 bg-paper border-r-3 border-ink flex flex-col h-screen sticky top-0">
+
       {/* Logo */}
-      <div className="px-5 py-6 border-b rule">
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-md bg-signal flex items-center justify-center shrink-0">
-            <Zap size={12} className="text-ink fill-ink" />
-          </div>
-          <span className="font-bold text-chalk tracking-tight text-sm">LeadForge</span>
-        </div>
+      <div className="px-6 py-6 border-b-3 border-ink">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2"
+        >
+          <Star
+            size={15}
+            className="text-gold"
+            fill="currentColor"
+            strokeWidth={0}
+          />
+
+          <span className="font-display font-bold tracking-tight text-ink uppercase">
+            LeadForge
+          </span>
+        </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        <p className="label px-2 mb-3">Navigation</p>
-        {NAV.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) => cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-100',
-              isActive
-                ? 'bg-chalk text-ink font-semibold'
-                : 'text-chalk-dim hover:text-chalk hover:bg-ink-3'
-            )}
-          >
-            <Icon size={15} />
-            {label}
-          </NavLink>
-        ))}
+      {/* Navigation */}
+      <nav className="flex-1 px-4 py-6">
 
-        <div className="pt-4 mt-4 border-t rule">
+        <p className="text-[11px] font-mono uppercase tracking-[0.2em] text-ink-muted mb-5">
+          Navigation
+        </p>
+
+        <div className="space-y-2">
+          {NAV.map(({ to, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 border-3 border-transparent px-4 py-3 font-medium transition-all',
+                  isActive
+                    ? 'bg-gold text-ink border-ink shadow-brut'
+                    : 'text-ink-muted hover:text-ink hover:border-ink hover:bg-paper-1'
+                )
+              }
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+        </div>
+
+        <div className="mt-8 pt-8 border-t-3 border-ink">
           <NavLink
             to="/settings"
-            className={({ isActive }) => cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all',
-              isActive ? 'bg-chalk text-ink font-semibold' : 'text-chalk-dim hover:text-chalk hover:bg-ink-3'
-            )}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 border-3 border-transparent px-4 py-3 font-medium transition-all',
+                isActive
+                  ? 'bg-gold text-ink border-ink shadow-brut'
+                  : 'text-ink-muted hover:text-ink hover:border-ink hover:bg-paper-1'
+              )
+            }
           >
-            <Settings size={15} />
-            Settings
+            <Settings size={18} />
+            <span>Settings</span>
           </NavLink>
         </div>
+
       </nav>
 
       {/* User */}
-      <div className="px-4 py-4 border-t rule">
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-chalk truncate">{user?.name}</p>
-            <p className="text-2xs text-chalk-muted truncate">{user?.email}</p>
-          </div>
-          <button
-            onClick={() => { logout(); navigate('/login') }}
-            className="p-1.5 rounded-md text-chalk-muted hover:text-chalk hover:bg-ink-3 transition-all shrink-0"
-            title="Sign out"
-          >
-            <LogOut size={13} />
-          </button>
+      <div className="border-t-3 border-ink p-5">
+
+        <div className="mb-4">
+          <p className="font-semibold text-sm text-ink truncate">
+            {user?.name}
+          </p>
+
+          <p className="text-xs text-ink-muted truncate">
+            {user?.email}
+          </p>
         </div>
+
+        <button
+          onClick={() => {
+            logout()
+            navigate('/login')
+          }}
+          className="w-full flex items-center justify-center gap-2 border-3 border-ink bg-rust text-paper py-3 font-semibold hover:shadow-brut transition-all"
+        >
+          <LogOut size={16} />
+          Sign out
+        </button>
+
       </div>
+
     </aside>
   )
 }

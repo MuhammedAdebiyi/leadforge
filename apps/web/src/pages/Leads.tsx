@@ -2,8 +2,60 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building2, Star, Phone, Mail, MapPin, ExternalLink, Send } from 'lucide-react'
 import { businessApi } from '../lib/api'
-import { StatusBadge, ScorePill, Spinner, EmptyState } from '../components/ui'
 import toast from 'react-hot-toast'
+
+// ── Local ui primitives (paper/ink/gold) ──────────────────────────────────────
+
+function Spinner() {
+  return (
+    <svg className="animate-spin h-5 w-5 text-ink-muted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+    </svg>
+  )
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  QUALIFIED:        'bg-gold-soft border-gold text-ink',
+  DISCOVERED:       'border-ink bg-paper-1 text-ink-dim',
+  WEBSITE_CHECKED:  'border-ink bg-paper-1 text-ink-dim',
+  EMAIL_ENRICHED:   'border-ink bg-paper text-rust',
+  SENT_TO_TELEGRAM: 'border-ink bg-paper text-rust',
+  EXPORTED:         'border-ink bg-paper-2 text-ink-dim',
+  ARCHIVED:         'border-ink bg-paper-2 text-ink-muted',
+}
+
+function StatusTag({ status }: { status: string }) {
+  return (
+    <span className={`tag border-2 ${STATUS_STYLES[status] ?? 'border-ink bg-paper-1 text-ink-dim'}`}>
+      {status.replace(/_/g, ' ')}
+    </span>
+  )
+}
+
+function ScorePill({ score }: { score: number }) {
+  const style =
+    score >= 80 ? 'text-rust border-rust bg-gold-soft' :
+    score >= 60 ? 'text-gold-1 border-gold bg-gold-soft' :
+                  'text-ink-muted border-ink bg-paper-1'
+  return (
+    <span className={`font-mono text-sm font-bold border-2 px-2.5 py-0.5 rounded-none ${style}`}>
+      {score}
+    </span>
+  )
+}
+
+function EmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="card flex flex-col items-center justify-center py-24 text-center px-8">
+      <Building2 size={36} className="text-ink-muted mb-5" strokeWidth={1.5} />
+      <p className="font-display font-bold text-ink text-lg mb-1">{title}</p>
+      <p className="text-ink-muted text-sm max-w-xs leading-relaxed">{description}</p>
+    </div>
+  )
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
 
 const FILTERS = [
   { label: 'All',       value: '' },
@@ -13,18 +65,21 @@ const FILTERS = [
   { label: 'Exported',  value: 'EXPORTED' },
 ]
 
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export function Leads() {
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
 
   const { data, isLoading } = useQuery({
     queryKey: ['businesses', status, page],
-    queryFn: () => businessApi.list({ status: status || undefined, page, limit: 30 }).then(r => r.data.data),
+    queryFn: () =>
+      businessApi.list({ status: status || undefined, page, limit: 30 }).then(r => r.data.data),
     refetchInterval: 15000,
   })
 
   const businesses = data?.businesses ?? []
-  const pagination = data?.pagination
+  const pagination  = data?.pagination
 
   const retry = async (id: string) => {
     try { await businessApi.retryTelegram(id); toast.success('Queued for Telegram') }
@@ -33,23 +88,27 @@ export function Leads() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap border-b-3 border-ink pb-6">
         <div>
-          <p className="label mb-1">Leads</p>
-          <h1 className="text-2xl font-bold text-chalk tracking-tight">Qualified Leads</h1>
+          <p className="label mb-1">Qualified leads</p>
+          <h1 className="text-3xl font-display font-bold text-ink tracking-tight">
+            Leads
+          </h1>
         </div>
 
         {/* Filters */}
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           {FILTERS.map(f => (
             <button
               key={f.value}
               onClick={() => { setStatus(f.value); setPage(1) }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
+              className={
                 status === f.value
-                  ? 'bg-chalk text-ink'
-                  : 'text-chalk-muted hover:text-chalk bg-ink-2 border border-white/[0.07]'
-              }`}
+                  ? 'font-mono text-xs uppercase tracking-wide px-3 py-1.5 border-3 border-ink bg-ink text-paper'
+                  : 'font-mono text-xs uppercase tracking-wide px-3 py-1.5 border-3 border-ink bg-paper text-ink hover:bg-paper-1 transition-colors'
+              }
             >
               {f.label}
             </button>
@@ -57,33 +116,35 @@ export function Leads() {
         </div>
       </div>
 
+      {/* ── Body ── */}
       {isLoading ? (
-        <div className="flex justify-center py-20"><Spinner size={20} /></div>
+        <div className="flex justify-center py-20"><Spinner /></div>
       ) : businesses.length === 0 ? (
         <EmptyState
-          icon={<Building2 size={36} />}
           title="No leads here"
           description="Leads appear as jobs complete. Start a search job to find businesses."
         />
       ) : (
         <>
-          <div className="card divide-y rule">
+          {/* Lead rows */}
+          <div className="card divide-y-3 divide-ink">
             {businesses.map((b: any) => (
-              <div key={b.id} className="px-6 py-5 hover:bg-ink-2 transition-colors">
+              <div key={b.id} className="px-6 py-5 hover:bg-paper-1 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
+
                     {/* Name + category */}
                     <div className="flex items-center gap-2.5 mb-2 flex-wrap">
-                      <span className="font-semibold text-chalk">{b.name}</span>
+                      <span className="font-display font-bold text-ink text-base">{b.name}</span>
                       {b.category && (
-                        <span className="text-2xs text-chalk-muted bg-ink-3 px-2 py-0.5 rounded-md border border-white/[0.06]">
+                        <span className="font-mono text-2xs uppercase tracking-wide text-ink-muted border-2 border-ink px-2 py-0.5 bg-paper-1">
                           {b.category}
                         </span>
                       )}
                     </div>
 
-                    {/* Contact info */}
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-chalk-muted mb-2">
+                    {/* Contact row */}
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-dim mb-3 font-mono">
                       {b.phone && (
                         <span className="flex items-center gap-1.5">
                           <Phone size={10} className="shrink-0" /> {b.phone}
@@ -102,27 +163,36 @@ export function Leads() {
                       )}
                       {b.rating && (
                         <span className="flex items-center gap-1.5">
-                          <Star size={10} className="fill-warn text-warn shrink-0" />
+                          <Star size={10} className="fill-gold text-gold shrink-0" />
                           {b.rating} · {b.reviewCount?.toLocaleString()} reviews
                         </span>
                       )}
                     </div>
 
-                    <StatusBadge status={b.status} />
+                    <StatusTag status={b.status} />
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0">
                     <ScorePill score={b.leadScore} />
                     {b.mapsUrl && (
-                      <a href={b.mapsUrl} target="_blank" rel="noopener noreferrer"
-                        className="btn-ghost px-2.5 py-2" title="Open in Maps">
-                        <ExternalLink size={12} />
+                      <a
+                        href={b.mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-ghost px-2.5 py-2 text-xs"
+                        title="Open in Maps"
+                      >
+                        <ExternalLink size={13} />
                       </a>
                     )}
                     {b.status === 'QUALIFIED' && (
-                      <button onClick={() => retry(b.id)} className="btn-ghost px-2.5 py-2" title="Send to Telegram">
-                        <Send size={12} />
+                      <button
+                        onClick={() => retry(b.id)}
+                        className="btn-ghost px-2.5 py-2 text-xs"
+                        title="Send to Telegram"
+                      >
+                        <Send size={13} />
                       </button>
                     )}
                   </div>
@@ -131,11 +201,26 @@ export function Leads() {
             ))}
           </div>
 
+          {/* Pagination */}
           {pagination && pagination.pages > 1 && (
-            <div className="flex items-center justify-center gap-3">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-ghost px-4">← Prev</button>
-              <span className="text-xs text-chalk-muted font-mono">{page} / {pagination.pages}</span>
-              <button onClick={() => setPage(p => Math.min(pagination.pages, p + 1))} disabled={page === pagination.pages} className="btn-ghost px-4">Next →</button>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="btn-ghost text-xs px-4 py-2 disabled:opacity-40"
+              >
+                ← Prev
+              </button>
+              <span className="text-xs font-mono text-ink-muted tabular-nums">
+                {page} / {pagination.pages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
+                disabled={page === pagination.pages}
+                className="btn-ghost text-xs px-4 py-2 disabled:opacity-40"
+              >
+                Next →
+              </button>
             </div>
           )}
         </>

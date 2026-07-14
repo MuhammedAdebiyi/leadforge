@@ -1,32 +1,67 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  MapPin, Globe2, Mail, BrainCircuit, Send, Table2,
-  ArrowRight, Star, Phone,
+  MapPin, Globe2, Layers, BrainCircuit, Send, Table2,
+  ArrowRight, Star, Search, Phone, XCircle,
 } from 'lucide-react'
 
+/* ------------------------------------------------------------------ */
+/*  Scroll-triggered reveal — small IntersectionObserver hook used by  */
+/*  the stats counters and the lead-card cascade.                     */
+/* ------------------------------------------------------------------ */
 
-const BUSINESSES = ['Alice Garden', 'Cactus', 'Cilantro', 'Commint Buka', 'Sunburst Diner', 'The Yellow Chilli']
-const DOMAINS = ['alicegarden.com', 'cactuslagos.com', 'cilantro.ng', 'comminbuka.com']
-const SCORES = [95, 90, 85, 65]
+function useInView<T extends HTMLElement>(threshold = 0.4) {
+  const ref = useRef<T | null>(null)
+  const [inView, setInView] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); obs.disconnect() } },
+      { threshold }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [threshold])
+
+  return { ref, inView }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Ticker — the "★ NO WEBSITE ★ QUALIFIED LEAD ★" scrolling band       */
+/*  This is the signature element: doubled content + -50% translate    */
+/*  gives a seamless loop without measuring widths at runtime.         */
+/* ------------------------------------------------------------------ */
+
+
+
+/* ------------------------------------------------------------------ */
+/*  Shared script: the exact numbers from the brief (200 → 80          */
+/*  qualified), reused by the hero terminal and the live demo so       */
+/*  every number on the page agrees with every other number.          */
+/* ------------------------------------------------------------------ */
+
+const BUSINESSES = ["Bella's Hair Studio", 'Crown & Curl', 'Glow Salon Lagos', 'Radiant Cuts']
 
 type Line = { text: string; kind: 'label' | 'item' | 'space' }
 
 function buildScript(): Line[] {
   return [
-    { text: 'Searching…', kind: 'label' },
-    { text: 'Restaurants in Lagos', kind: 'item' },
+    { text: 'Job started…', kind: 'label' },
+    { text: 'Hair Salon · Lagos · 25km', kind: 'item' },
     { text: '', kind: 'space' },
-    ...BUSINESSES.slice(0, 4).map(b => ({ text: `✓ ${b}`, kind: 'item' as const })),
+    { text: 'Scraping Google Maps…', kind: 'label' },
+    { text: '✓ 200 businesses found', kind: 'item' },
     { text: '', kind: 'space' },
-    { text: 'Finding websites…', kind: 'label' },
-    ...DOMAINS.map(d => ({ text: `✓ ${d}`, kind: 'item' as const })),
+    { text: 'Deduplicating…', kind: 'label' },
+    { text: '✓ 175 duplicates removed', kind: 'item' },
     { text: '', kind: 'space' },
-    { text: 'Checking contact info…', kind: 'label' },
-    { text: '✓ Email found', kind: 'item' },
-    { text: '✓ Phone found', kind: 'item' },
+    { text: 'Checking websites…', kind: 'label' },
+    ...BUSINESSES.map(b => ({ text: `✗ ${b} — no website`, kind: 'item' as const })),
     { text: '', kind: 'space' },
-    { text: 'Scoring quality…', kind: 'label' },
-    ...SCORES.map(s => ({ text: `${s}`, kind: 'item' as const })),
+    { text: 'Qualifying…', kind: 'label' },
+    { text: '✓ 80 qualified leads', kind: 'item' },
     { text: '', kind: 'space' },
     { text: 'Sending to Telegram…', kind: 'label' },
     { text: '✓ Done', kind: 'item' },
@@ -62,26 +97,26 @@ function HeroTerminal() {
 
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/[0.07] bg-ink-2">
-        <span className="w-2.5 h-2.5 rounded-full bg-danger/60" />
-        <span className="w-2.5 h-2.5 rounded-full bg-warn/60" />
-        <span className="w-2.5 h-2.5 rounded-full bg-signal/60" />
-        <span className="ml-2 text-2xs font-mono text-chalk-muted tracking-wide">leadforge — live search</span>
+      <div className="flex items-center gap-1.5 px-4 py-3 border-b-3 border-ink bg-paper-1">
+        <span className="w-2.5 h-2.5 border-2 border-ink bg-rust" />
+        <span className="w-2.5 h-2.5 border-2 border-ink bg-gold" />
+        <span className="w-2.5 h-2.5 border-2 border-ink bg-ink" />
+        <span className="ml-2 text-2xs font-mono text-ink-muted tracking-wide uppercase">job #2841 — live</span>
       </div>
       <div className="p-5 font-mono text-[13px] leading-6 h-[360px] overflow-hidden">
         {script.slice(0, visible).map((line, idx) => {
           if (line.kind === 'space') return <div key={idx} className="h-2" />
           if (line.kind === 'label') {
             return (
-              <div key={idx} className="text-chalk-dim mt-1">
+              <div key={idx} className="text-ink-dim mt-1">
                 {line.text}
-                {idx === visible - 1 && <span className="inline-block w-1.5 h-3.5 bg-signal/70 ml-1 animate-pulse-dot align-middle" />}
+                {idx === visible - 1 && <span className="inline-block w-1.5 h-3.5 bg-gold ml-1 animate-pulse align-middle" />}
               </div>
             )
           }
-          const isScore = /^\d+$/.test(line.text)
+          const isQualCount = /qualified/.test(line.text)
           return (
-            <div key={idx} className={`animate-slide-up ${isScore ? 'text-warn pl-4' : 'text-signal pl-1'}`}>
+            <div key={idx} className={`animate-slide-up ${isQualCount ? 'text-rust font-semibold pl-1' : 'text-ink pl-1'}`}>
               {line.text}
             </div>
           )
@@ -92,29 +127,131 @@ function HeroTerminal() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Floating job-status card — overlaps the terminal, bottom-left      */
+/* ------------------------------------------------------------------ */
+
+function FloatingJobStatus() {
+  const [pct, setPct] = useState(12)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPct(prev => (prev >= 87 ? 12 : prev + Math.ceil(Math.random() * 9)))
+    }, 900)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div className="card hidden sm:block absolute -bottom-8 -left-8 w-64 p-4 bg-paper">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-gold opacity-75 animate-ping" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-gold" />
+        </span>
+        <p className="text-2xs font-mono font-semibold text-ink uppercase tracking-widest">Running</p>
+      </div>
+      <p className="text-sm text-ink-dim mb-3 flex items-center gap-1.5">
+        <Search size={12} className="text-ink-muted" /> Hair Salon · Lagos
+      </p>
+      <div className="h-2 border-2 border-ink bg-paper-1 overflow-hidden mb-1.5">
+        <div
+          className="h-full bg-gold transition-all duration-700 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-2xs text-ink-muted font-mono tabular-nums text-right">{pct}%</p>
+    </div>
+  )
+}
+
+
+
+function Navbar() {
+  const navigate = useNavigate()
+
+  const navLinks = [
+    { label: 'Pipeline',  href: '#pipeline' },
+    { label: 'Lifecycle', href: '#lifecycle' },
+    { label: 'Pricing',   href: '#' },
+  ]
+
+  return (
+    <header className="sticky top-0 z-50 bg-paper border-b-3 border-ink">
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+
+        {/* ★ Logo — star + wordmark */}
+        <button
+          onClick={() => navigate('/')}
+          className="font-display font-bold text-ink tracking-tight flex items-center gap-1.5"
+        >
+          <Star size={14} className="text-gold" fill="currentColor" strokeWidth={0} />
+          MAPS LEAD SCRAPER
+        </button>
+
+        <nav className="hidden md:flex items-center gap-7">
+          {navLinks.map(link => (
+            <a
+              key={link.label}
+              href={link.href}
+              className="text-xs font-mono uppercase tracking-wide text-ink-dim hover:text-ink transition-colors"
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          {/* Sign in → login mode */}
+          <button
+            onClick={() => navigate('/login')}
+            className="btn-ghost text-xs px-4 py-2"
+          >
+            Sign in
+          </button>
+          {/* Start Free → signup mode via location state */}
+          <button
+            onClick={() => navigate('/login', { state: { mode: 'signup' } })}
+            className="btn-primary text-xs px-4 py-2"
+          >
+            Start Free
+          </button>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /*  Hero                                                               */
 /* ------------------------------------------------------------------ */
 
 function Hero() {
+  const navigate = useNavigate()
   return (
-    <section className="max-w-6xl mx-auto px-6 pt-24 pb-20 grid md:grid-cols-2 gap-14 items-center">
-      <div>
-        <p className="label mb-4">Lead generation, automated</p>
-        <h1 className="text-4xl md:text-[3.25rem] font-bold text-chalk tracking-tight leading-[1.05] mb-6">
-          Find 1,000 qualified businesses while you sleep.
+    <section className="max-w-6xl mx-auto px-6 pt-16 pb-24 grid md:grid-cols-2 gap-14 items-center">
+      <div className="animate-fade-in">
+        <p className="label mb-4">For agencies doing local outreach</p>
+        <h1 className="text-4xl md:text-[3.1rem] font-display font-bold text-ink tracking-tight leading-[1.05] mb-6">
+          Find the businesses that don't have a website yet.
         </h1>
-        <p className="text-chalk-dim text-base leading-relaxed mb-8 max-w-md">
-          LeadForge scrapes Google Maps, verifies every website and contact,
-          scores each lead, and drops the good ones straight into your Telegram.
+        <p className="text-ink-dim text-base leading-relaxed mb-8 max-w-md">
+          You already know the pitch writes itself. Maps Lead Scraper finds
+          them for you — searches Google Maps, checks every business for a
+          website, and drops the ones without one straight into your Telegram.
         </p>
         <div className="flex items-center gap-3">
-          <button className="btn-primary text-sm px-5 py-2.5">
+          <button
+            onClick={() => navigate('/login', { state: { mode: 'signup' } })}
+            className="btn-primary text-sm px-5 py-2.5"
+          >
             Start Free <ArrowRight size={14} />
           </button>
-          <button className="btn-ghost text-sm px-5 py-2.5">See how it works</button>
+          <a href="#pipeline" className="btn-ghost text-sm px-5 py-2.5">See the pipeline</a>
         </div>
       </div>
-      <HeroTerminal />
+      <div className="relative">
+        <HeroTerminal />
+        <FloatingJobStatus />
+      </div>
     </section>
   )
 }
@@ -124,29 +261,31 @@ function Hero() {
 /* ------------------------------------------------------------------ */
 
 const PIPELINE = [
-  { icon: MapPin, label: 'Google Maps', sub: 'Raw business listings' },
-  { icon: Globe2, label: 'Website scraper', sub: 'Finds & verifies domains' },
-  { icon: Mail, label: 'Contact finder', sub: 'Email + phone' },
-  { icon: BrainCircuit, label: 'AI qualification', sub: 'Scores fit, 0–100' },
+  { icon: MapPin, label: 'Google Maps', sub: 'Raw listings, scraped' },
+  { icon: Layers, label: 'Deduplicate', sub: 'By Place ID, not name' },
+  { icon: Globe2, label: 'Website check', sub: 'Flags the ones with none' },
+  { icon: BrainCircuit, label: 'Qualify', sub: 'No-website = qualified' },
   { icon: Send, label: 'Telegram', sub: 'Pushed the moment it qualifies' },
-  { icon: Table2, label: 'CSV / CRM export', sub: 'Ready for outreach' },
+  { icon: Table2, label: 'CSV export', sub: 'Ready for outreach' },
 ]
 
 function Pipeline() {
   return (
-    <section className="max-w-6xl mx-auto px-6 py-20">
-      <p className="label mb-2">How it works</p>
-      <h2 className="text-2xl font-bold text-chalk tracking-tight mb-12">One pipeline, zero manual work.</h2>
+    <section id="pipeline" className="max-w-6xl mx-auto px-6 py-20 scroll-mt-24">
+      <p className="label mb-2">How a job runs</p>
+      <h2 className="text-2xl font-display font-bold text-ink tracking-tight mb-12">
+        One queue per stage. Nothing blocks an API request.
+      </h2>
       <div className="grid md:grid-cols-6 gap-4">
         {PIPELINE.map((step, idx) => (
           <div key={step.label} className="flex md:flex-col items-center md:items-start gap-4 md:gap-3">
-            <div className="card p-4 flex-1 w-full">
-              <step.icon size={18} className="text-signal mb-3" strokeWidth={1.75} />
-              <p className="text-sm font-semibold text-chalk mb-0.5">{step.label}</p>
-              <p className="text-xs text-chalk-muted leading-snug">{step.sub}</p>
+            <div className="card p-4 flex-1 w-full hover:-translate-y-0.5 hover:shadow-brut-gold transition-all">
+              <step.icon size={18} className="text-rust mb-3" strokeWidth={1.75} />
+              <p className="text-sm font-semibold text-ink mb-0.5">{step.label}</p>
+              <p className="text-xs text-ink-muted leading-snug">{step.sub}</p>
             </div>
             {idx < PIPELINE.length - 1 && (
-              <ArrowRight size={16} className="text-chalk-muted shrink-0 md:hidden" />
+              <ArrowRight size={16} className="text-ink-muted shrink-0 md:hidden" />
             )}
           </div>
         ))}
@@ -156,49 +295,51 @@ function Pipeline() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Live search demo — progress bar + counting total                  */
+/*  Live search demo — progress bar + counting toward 80 qualified     */
 /* ------------------------------------------------------------------ */
 
-const COUNT_STEPS = [1, 5, 12, 38, 76, 100]
+const COUNT_STEPS = [1, 6, 18, 34, 52, 80]
 
 function LiveSearchDemo() {
   const [stepIdx, setStepIdx] = useState(0)
 
   useEffect(() => {
     const id = setInterval(() => {
-      setStepIdx(prev => (prev + 1) % (COUNT_STEPS.length + 3)) // pause a beat at 100, then reset
+      setStepIdx(prev => (prev + 1) % (COUNT_STEPS.length + 3)) // pause a beat at 80, then reset
     }, 650)
     return () => clearInterval(id)
   }, [])
 
   const count = COUNT_STEPS[Math.min(stepIdx, COUNT_STEPS.length - 1)]
-  const pct = Math.round((count / 100) * 100)
+  const pct = Math.round((count / 80) * 100)
 
   return (
     <section className="max-w-6xl mx-auto px-6 py-20">
       <div className="card p-8 md:p-10 grid md:grid-cols-2 gap-10 items-center">
         <div>
-          <p className="label mb-2">Live search</p>
-          <h2 className="text-2xl font-bold text-chalk tracking-tight mb-4">Watch it work in real time.</h2>
-          <p className="text-chalk-dim text-sm leading-relaxed max-w-sm">
-            Every search streams results the moment they're found — no waiting
-            for a batch job to finish before you see a single lead.
+          <p className="label mb-2">Live progress</p>
+          <h2 className="text-2xl font-display font-bold text-ink tracking-tight mb-4">
+            Watch a job qualify leads in real time.
+          </h2>
+          <p className="text-ink-dim text-sm leading-relaxed max-w-sm">
+            Jobs are resumable — if a worker dies at business #384, it picks
+            back up from #385. You never restart from zero.
           </p>
         </div>
         <div className="font-mono">
           <div className="flex items-baseline justify-between mb-2">
-            <span className="text-xs text-chalk-muted">Restaurant · Lagos</span>
-            <span className="text-2xs text-chalk-muted">{pct}%</span>
+            <span className="text-xs text-ink-muted uppercase tracking-wide">Hair Salon · Lagos</span>
+            <span className="text-2xs text-ink-muted">{pct}%</span>
           </div>
-          <div className="h-2 rounded-full bg-ink-3 overflow-hidden mb-4">
+          <div className="h-2.5 border-2 border-ink bg-paper-1 overflow-hidden mb-4">
             <div
-              className="h-full bg-signal transition-all duration-500 ease-out rounded-full"
+              className="h-full bg-gold transition-all duration-500 ease-out"
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="text-5xl font-bold text-chalk tabular-nums tracking-tight">
+          <div className="text-5xl font-display font-bold text-ink tabular-nums tracking-tight">
             {count}
-            <span className="text-lg text-chalk-muted font-medium ml-2">leads found</span>
+            <span className="text-lg text-ink-muted font-sans font-medium ml-2">qualified leads</span>
           </div>
         </div>
       </div>
@@ -207,38 +348,38 @@ function LiveSearchDemo() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Lead card feed — new card slides in every few seconds             */
+/*  Lead card feed — every card qualifies for the same reason: no site */
 /* ------------------------------------------------------------------ */
 
 const LEAD_FEED = [
-  { name: 'Alice Garden', category: 'Restaurant', score: 95, phone: true, website: true },
-  { name: 'Cactus', category: 'Restaurant', score: 90, phone: true, website: true },
-  { name: 'Cilantro', category: 'Restaurant', score: 85, phone: true, website: false },
-  { name: 'Commint Buka', category: 'Restaurant', score: 65, phone: false, website: true },
+  { name: "Bella's Hair Studio", category: 'Hair Salon', score: 92, phone: true },
+  { name: 'Crown & Curl', category: 'Hair Salon', score: 88, phone: true },
+  { name: 'Glow Salon Lagos', category: 'Hair Salon', score: 81, phone: false },
+  { name: 'Radiant Cuts', category: 'Hair Salon', score: 74, phone: true },
 ]
 
-function LeadCard({ lead }: { lead: typeof LEAD_FEED[number] }) {
-  const scoreColor = lead.score >= 85 ? 'text-signal' : lead.score >= 70 ? 'text-warn' : 'text-chalk-muted'
+function LeadCard({ lead, delayMs }: { lead: typeof LEAD_FEED[number]; delayMs: number }) {
+  const scoreColor = lead.score >= 85 ? 'text-rust' : lead.score >= 70 ? 'text-gold-1' : 'text-ink-muted'
   return (
-    <div className="card p-5 animate-slide-up">
+    <div
+      className="card p-5 opacity-0 animate-slide-up"
+      style={{ animationDelay: `${delayMs}ms`, animationFillMode: 'forwards' }}
+    >
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-sm font-semibold text-chalk">{lead.name}</p>
-          <p className="text-xs text-chalk-muted">{lead.category}</p>
+          <p className="text-sm font-semibold text-ink">{lead.name}</p>
+          <p className="text-xs text-ink-muted">{lead.category}</p>
         </div>
-        <div className={`text-2xl font-bold tabular-nums ${scoreColor}`}>{lead.score}</div>
+        <div className={`text-2xl font-display font-bold tabular-nums ${scoreColor}`}>{lead.score}</div>
       </div>
-      <div className="flex items-center gap-1 mb-3 text-warn">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Star key={i} size={11} fill="currentColor" strokeWidth={0} />
-        ))}
-      </div>
-      <div className="flex gap-3 text-xs text-chalk-muted">
-        <span className={`flex items-center gap-1 ${lead.phone ? 'text-chalk-dim' : 'opacity-40'}`}>
-          <Phone size={11} /> Phone
+      <div className="flex gap-2 mb-3">
+        <span className="tag flex items-center gap-1 bg-gold-soft border-ink">
+          <XCircle size={11} /> No website
         </span>
-        <span className={`flex items-center gap-1 ${lead.website ? 'text-chalk-dim' : 'opacity-40'}`}>
-          <Globe2 size={11} /> Website
+      </div>
+      <div className="flex gap-3 text-xs text-ink-muted">
+        <span className={`flex items-center gap-1 ${lead.phone ? 'text-ink-dim' : 'opacity-40'}`}>
+          <Phone size={11} /> Phone
         </span>
       </div>
     </div>
@@ -246,22 +387,58 @@ function LeadCard({ lead }: { lead: typeof LEAD_FEED[number] }) {
 }
 
 function LeadFeed() {
-  const [count, setCount] = useState(1)
+  const { ref, inView } = useInView<HTMLDivElement>(0.2)
+  const [cycle, setCycle] = useState(0)
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setCount(prev => (prev >= LEAD_FEED.length ? 1 : prev + 1))
-    }, 2200)
+    if (!inView) return
+    const cascadeMs = LEAD_FEED.length * 140 + 900
+    const id = setInterval(() => setCycle(c => c + 1), cascadeMs + 2200)
     return () => clearInterval(id)
-  }, [])
+  }, [inView])
 
   return (
-    <section className="max-w-6xl mx-auto px-6 py-20">
-      <p className="label mb-2">Every lead, qualified</p>
-      <h2 className="text-2xl font-bold text-chalk tracking-tight mb-10">Not just contacts — scored contacts.</h2>
+    <section ref={ref} className="max-w-6xl mx-auto px-6 py-20">
+      <p className="label mb-2">Every lead, qualified the same way</p>
+      <h2 className="text-2xl font-display font-bold text-ink tracking-tight mb-10">
+        No website. That's the whole filter.
+      </h2>
       <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {LEAD_FEED.slice(0, count).map(lead => (
-          <LeadCard key={lead.name} lead={lead} />
+        {inView && LEAD_FEED.map((lead, i) => (
+          <LeadCard key={`${lead.name}-${cycle}`} lead={lead} delayMs={i * 140} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Lifecycle — the one place numbering is earned: this is a real,    */
+/*  literal state machine every business moves through, not decoration */
+/* ------------------------------------------------------------------ */
+
+const LIFECYCLE = [
+  { n: '01', label: 'Discovered', sub: 'Found on Google Maps, deduped by Place ID' },
+  { n: '02', label: 'Website checked', sub: 'Verified live, not just guessed from a listing' },
+  { n: '03', label: 'Qualified', sub: 'No website found — this is a real lead' },
+  { n: '04', label: 'Sent', sub: 'Pushed to Telegram the moment it qualifies' },
+  { n: '05', label: 'Exported', sub: 'Available as CSV, ready for outreach' },
+]
+
+function Lifecycle() {
+  return (
+    <section id="lifecycle" className="max-w-6xl mx-auto px-6 py-20 scroll-mt-24">
+      <p className="label mb-2">Business lifecycle</p>
+      <h2 className="text-2xl font-display font-bold text-ink tracking-tight mb-12">
+        Every business moves through five states. No shortcuts.
+      </h2>
+      <div className="grid md:grid-cols-5 gap-4">
+        {LIFECYCLE.map(stage => (
+          <div key={stage.n} className="card-flat p-5">
+            <p className="step-num mb-3">{stage.n}</p>
+            <p className="text-sm font-semibold text-ink mb-1">{stage.label}</p>
+            <p className="text-xs text-ink-muted leading-snug">{stage.sub}</p>
+          </div>
         ))}
       </div>
     </section>
@@ -272,22 +449,57 @@ function LeadFeed() {
 /*  Stats                                                              */
 /* ------------------------------------------------------------------ */
 
-const STATS = [
-  { value: '2.1M', label: 'Businesses indexed' },
-  { value: '40', label: 'Countries covered' },
-  { value: '95%', label: 'Contact accuracy' },
-  { value: '<2 min', label: 'Average search time' },
+function useCountUp(target: number, active: boolean, duration = 1700) {
+  const [value, setValue] = useState(0)
+
+  useEffect(() => {
+    if (!active) return
+    let raf: number
+    let start: number | null = null
+
+    const tick = (ts: number) => {
+      if (start === null) start = ts
+      const progress = Math.min((ts - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setValue(target * eased)
+      if (progress < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [active, target, duration])
+
+  return value
+}
+
+type Stat = { target: number; suffix?: string; prefix?: string; label: string }
+
+const STATS: Stat[] = [
+  { target: 500, suffix: '/hr', label: 'Businesses scraped' },
+  { target: 100, suffix: '%', label: 'Deduped by Place ID' },
+  { target: 3, suffix: ' retries', label: 'Before dead-letter' },
+  { target: 0, prefix: '<', suffix: 's', label: 'API blocking time' },
 ]
 
-function Stats() {
+function StatCard({ stat, active }: { stat: Stat; active: boolean }) {
+  const value = useCountUp(stat.target, active)
+  const display = Math.round(value).toString()
   return (
-    <section className="max-w-6xl mx-auto px-6 py-20">
+    <div className="card-flat py-8 text-center">
+      <div className="text-3xl font-display font-bold text-ink tracking-tight tabular-nums mb-1">
+        {stat.prefix}{display}{stat.suffix}
+      </div>
+      <div className="text-xs text-ink-muted uppercase tracking-wide font-mono">{stat.label}</div>
+    </div>
+  )
+}
+
+function Stats() {
+  const { ref, inView } = useInView<HTMLDivElement>(0.5)
+  return (
+    <section ref={ref} className="max-w-6xl mx-auto px-6 py-20">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {STATS.map(stat => (
-          <div key={stat.label} className="card-flat py-8 text-center">
-            <div className="text-3xl font-bold text-chalk tracking-tight tabular-nums mb-1">{stat.value}</div>
-            <div className="text-xs text-chalk-muted">{stat.label}</div>
-          </div>
+          <StatCard key={stat.label} stat={stat} active={inView} />
         ))}
       </div>
     </section>
@@ -299,13 +511,17 @@ function Stats() {
 /* ------------------------------------------------------------------ */
 
 function FinalCta() {
+  const navigate = useNavigate()
   return (
-    <section className="max-w-6xl mx-auto px-6 pt-4 pb-28 text-center">
-      <h2 className="text-3xl font-bold text-chalk tracking-tight mb-4">
-        Your next 1,000 leads are already out there.
+    <section className="max-w-6xl mx-auto px-6 pt-4 pb-24 text-center">
+      <h2 className="text-3xl font-display font-bold text-ink tracking-tight mb-4">
+        Your next 80 leads are sitting on Google Maps.
       </h2>
-      <p className="text-chalk-dim text-sm mb-8">LeadForge just has to go find them.</p>
-      <button className="btn-primary text-sm px-6 py-3 mx-auto">
+      <p className="text-ink-dim text-sm mb-8">Give it a keyword and a city. It does the rest.</p>
+      <button
+        onClick={() => navigate('/login', { state: { mode: 'signup' } })}
+        className="btn-primary text-sm px-6 py-3 mx-auto"
+      >
         Start Free <ArrowRight size={14} />
       </button>
     </section>
@@ -319,10 +535,8 @@ function FinalCta() {
 export function Landing() {
   return (
     <div className="min-h-screen">
-      <header className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
-        <span className="text-sm font-bold text-chalk tracking-tight">LeadForge</span>
-        <button className="btn-ghost text-xs px-4 py-2">Sign in</button>
-      </header>
+     
+      <Navbar />
       <Hero />
       <div className="rule border-t" />
       <Pipeline />
@@ -331,8 +545,11 @@ export function Landing() {
       <div className="rule border-t" />
       <LeadFeed />
       <div className="rule border-t" />
+      <Lifecycle />
+      <div className="rule border-t" />
       <Stats />
       <FinalCta />
+      
     </div>
   )
 }
