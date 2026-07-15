@@ -4,7 +4,7 @@ import { Building2, Star, Phone, Mail, MapPin, ExternalLink, Send } from 'lucide
 import { businessApi } from '../lib/api'
 import toast from 'react-hot-toast'
 
-// ── Local ui primitives (paper/ink/gold) ──────────────────────────────────────
+
 
 function Spinner() {
   return (
