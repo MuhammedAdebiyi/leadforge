@@ -19,18 +19,33 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
     return
   }
 
-  // Idempotency guard — only process businesses still at DISCOVERED
   if (business.status !== 'DISCOVERED') {
     logger.debug({ businessId, status: business.status }, 'Already past discovery — skipping')
     return
   }
 
-  const result = await checkWebsite(business.mapsUrl ?? '', business.name, logger)
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: { city: true, leadScoreThreshold: true, telegramDestination: true, useEmailEnrichment: true },
+  })
+
+  if (!job) {
+    logger.warn({ jobId }, 'Job not found — skipping')
+    return
+  }
+
+  const result = await checkWebsite(business.mapsUrl ?? '', business.name, job.city, logger)
 
   if (result.hasWebsite) {
     await prisma.business.update({
       where: { id: businessId },
-      data: { hasWebsite: true, website: result.url, status: 'ARCHIVED', leadScore: 0 },
+      data: {
+        hasWebsite: true,
+        hasSocialPresence: result.hasSocialPresence,
+        website: result.url,
+        status: 'ARCHIVED',
+        leadScore: 0,
+      },
     })
     logger.debug({ businessId, url: result.url }, 'Has website — archived')
     return
@@ -38,20 +53,18 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
 
   await prisma.business.update({
     where: { id: businessId },
-    data: { hasWebsite: false, website: null, status: 'VALIDATED' },
+    data: {
+      hasWebsite: false,
+      hasSocialPresence: result.hasSocialPresence,
+      website: null,
+      status: 'VALIDATED',
+    },
   })
 
-  logger.debug({ businessId, name: business.name }, 'Validated — no website confirmed')
-
-  const job = await prisma.job.findUnique({
-    where: { id: jobId },
-    select: { leadScoreThreshold: true, telegramDestination: true, useEmailEnrichment: true },
-  })
-
-  if (!job) {
-    logger.warn({ jobId }, 'Job not found — skipping')
-    return
-  }
+  logger.debug(
+    { businessId, name: business.name, hasSocialPresence: result.hasSocialPresence },
+    'Validated — no website confirmed'
+  )
 
   const meetsThreshold = business.leadScore >= (job.leadScoreThreshold ?? 50)
 

@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/playwright:v1.45.0-jammy AS base
+WORKDIR /app
+COPY package.json package-lock.json turbo.json ./
+COPY packages ./packages
+COPY apps ./apps
+COPY workers ./workers
+RUN npm ci
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+
+FROM mcr.microsoft.com/playwright:v1.45.0-jammy
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=base /app ./
+ARG SERVICE_PATH
+ENV SERVICE_PATH=${SERVICE_PATH}
+CMD ["sh", "-c", "npx tsx ${SERVICE_PATH}/src/index.ts"]

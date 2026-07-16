@@ -18,7 +18,7 @@ export class JobsService {
       })
       await tx.jobProgress.create({ data: { jobId: j.id } })
       return j
-    })
+    }, { timeout: 15000 })
 
     publish(QUEUES.JOB, {
       jobId: job.id, userId, keyword: job.keyword, city: job.city,

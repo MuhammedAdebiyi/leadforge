@@ -2,7 +2,7 @@
   "name": "@leadforge/telegram-worker",
   "version": "0.0.1",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "NODE_OPTIONS=--dns-result-order=ipv4first tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },

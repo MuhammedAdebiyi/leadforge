@@ -1,0 +1,19 @@
+FROM node:20-slim AS base
+WORKDIR /app
+COPY package.json package-lock.json turbo.json ./
+COPY packages ./packages
+COPY apps ./apps
+COPY workers ./workers
+RUN npm ci
+
+ARG SERVICE_PATH
+RUN npm run build --workspace=${SERVICE_PATH} 2>/dev/null || true
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+
+FROM node:20-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=base /app ./
+ARG SERVICE_PATH
+ENV SERVICE_PATH=${SERVICE_PATH}
+CMD ["sh", "-c", "npx tsx ${SERVICE_PATH}/src/index.ts"]

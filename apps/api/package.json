@@ -2,7 +2,7 @@
   "name": "@leadforge/api",
   "version": "0.0.1",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "NODE_OPTIONS=--dns-result-order=ipv4first tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
