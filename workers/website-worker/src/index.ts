@@ -36,6 +36,10 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
 
   const result = await checkWebsite(business.mapsUrl ?? '', business.name, job.city, logger)
 
+  if (result.scrapedEmail) {
+    logger.info({ businessId, email: result.scrapedEmail }, '📧 Email found in social bio')
+  }
+
   if (result.hasWebsite) {
     await prisma.business.update({
       where: { id: businessId },
@@ -57,12 +61,13 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
       hasWebsite: false,
       hasSocialPresence: result.hasSocialPresence,
       website: null,
+      email: result.scrapedEmail,
       status: 'VALIDATED',
     },
   })
 
   logger.debug(
-    { businessId, name: business.name, hasSocialPresence: result.hasSocialPresence },
+    { businessId, name: business.name, hasSocialPresence: result.hasSocialPresence, hasScrapedEmail: !!result.scrapedEmail },
     'Validated — no website confirmed'
   )
 
@@ -89,7 +94,9 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
 
   logger.info({ businessId, name: business.name, score: business.leadScore }, '✅ Lead qualified — matches ICP')
 
-  if (job.useEmailEnrichment) {
+  // Skip Hunter enrichment if we already have an email from the social bio scrape —
+  // no point burning an API credit on a lookup that's already answered.
+  if (job.useEmailEnrichment && !result.scrapedEmail) {
     publish(QUEUES.EMAIL, { businessId, jobId }, businessId)
     logger.debug({ businessId }, 'Queued for email enrichment')
   } else {
