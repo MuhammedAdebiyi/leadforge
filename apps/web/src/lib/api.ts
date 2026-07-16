@@ -36,8 +36,6 @@ api.interceptors.response.use(
 
 export default api
 
-// ── API functions ─────────────────────────────────────────────────────────────
-
 export const authApi = {
   register: (data: { email: string; password: string; name: string }) =>
     api.post('/api/auth/register', data),
@@ -68,6 +66,8 @@ export const businessApi = {
     api.post('/api/businesses/export', { jobId, format }),
   retryTelegram: (id: string) =>
     api.post(`/api/businesses/${id}/retry-telegram`),
+  updateStatus: (id: string, status: string, notes?: string) =>
+    api.patch(`/api/businesses/${id}/status`, { status, notes }),
 }
 
 export interface CreateJobInput {

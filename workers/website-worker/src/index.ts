@@ -1,4 +1,4 @@
-import { createWorker, prisma, publish, QUEUES, createLogger } from '@leadforge/shared'
+import { createWorker, prisma, publish, QUEUES } from '@leadforge/shared'
 import { checkWebsite } from './checker'
 import type { ConsumeMessage, Channel } from 'amqplib'
 import type { AppLogger } from '@leadforge/shared'
@@ -11,7 +11,7 @@ interface WebsiteMessage {
 async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: AppLogger): Promise<void> {
   const { businessId, jobId }: WebsiteMessage = JSON.parse(msg.content.toString())
 
-  logger.info({ businessId, jobId }, '🔍 Checking website')
+  logger.info({ businessId, jobId }, '🔍 Validating business')
 
   const business = await prisma.business.findUnique({ where: { id: businessId } })
   if (!business) {
@@ -19,25 +19,30 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
     return
   }
 
-  // Already fully processed — idempotency guard
-  if (business.status !== 'WEBSITE_CHECKED') {
-    logger.debug({ businessId, status: business.status }, 'Already past website check — skipping')
+  // Idempotency guard — only process businesses still at DISCOVERED
+  if (business.status !== 'DISCOVERED') {
+    logger.debug({ businessId, status: business.status }, 'Already past discovery — skipping')
     return
   }
 
   const result = await checkWebsite(business.mapsUrl ?? '', business.name, logger)
 
   if (result.hasWebsite) {
-    // Has a website — not a lead, archive it
     await prisma.business.update({
       where: { id: businessId },
-      data: { hasWebsite: true, website: result.url, status: 'ARCHIVED' },
+      data: { hasWebsite: true, website: result.url, status: 'ARCHIVED', leadScore: 0 },
     })
     logger.debug({ businessId, url: result.url }, 'Has website — archived')
     return
   }
 
-  // No website confirmed — qualify the lead
+  await prisma.business.update({
+    where: { id: businessId },
+    data: { hasWebsite: false, website: null, status: 'VALIDATED' },
+  })
+
+  logger.debug({ businessId, name: business.name }, 'Validated — no website confirmed')
+
   const job = await prisma.job.findUnique({
     where: { id: jobId },
     select: { leadScoreThreshold: true, telegramDestination: true, useEmailEnrichment: true },
@@ -55,14 +60,13 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
       where: { id: businessId },
       data: { status: 'ARCHIVED' },
     })
-    logger.debug({ businessId, score: business.leadScore }, 'Score below threshold — archived')
+    logger.debug({ businessId, score: business.leadScore, threshold: job.leadScoreThreshold }, 'Below ICP threshold — archived')
     return
   }
 
-  // Qualified lead
   await prisma.business.update({
     where: { id: businessId },
-    data: { hasWebsite: false, website: null, status: 'QUALIFIED' },
+    data: { status: 'QUALIFIED' },
   })
 
   await prisma.job.update({
@@ -70,15 +74,20 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
     data: { qualifiedBusinesses: { increment: 1 } },
   })
 
-  logger.info({ businessId, name: business.name, score: business.leadScore }, '✅ Lead qualified')
+  logger.info({ businessId, name: business.name, score: business.leadScore }, '✅ Lead qualified — matches ICP')
 
-  // Route to email enrichment or straight to Telegram
   if (job.useEmailEnrichment) {
     publish(QUEUES.EMAIL, { businessId, jobId }, businessId)
     logger.debug({ businessId }, 'Queued for email enrichment')
-  } else if (job.telegramDestination) {
-    publish(QUEUES.TELEGRAM, { businessId, chatId: job.telegramDestination }, businessId)
-    logger.debug({ businessId }, 'Queued for Telegram')
+  } else {
+    await prisma.business.update({
+      where: { id: businessId },
+      data: { status: 'READY_FOR_OUTREACH' },
+    })
+    if (job.telegramDestination) {
+      publish(QUEUES.TELEGRAM, { businessId, chatId: job.telegramDestination }, businessId)
+      logger.debug({ businessId }, 'Queued for Telegram')
+    }
   }
 }
 

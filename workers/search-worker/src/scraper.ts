@@ -14,7 +14,7 @@ export interface ScrapeOptions {
   jobId: string
   onBusiness: (b: RawBusiness, index: number) => Promise<void>
   onProgress: (processed: number, total: number, currentStep: string) => Promise<void>
-  shouldStop: () => Promise<boolean>   
+  shouldStop: () => Promise<boolean>
 }
 
 const SCROLL_DELAY_MS = 1500
@@ -42,14 +42,15 @@ export async function scrapeGoogleMaps(context: BrowserContext, opts: ScrapeOpti
 
     await onProgress(0, maxResults, 'Scrolling results')
 
-    const listingUrls = await collectListingUrls(page, maxResults, jobId, shouldStop)
+    const listingUrls = await collectListingUrls(page, maxResults, jobId, shouldStop, onProgress)
 
     logger.info({ jobId, found: listingUrls.length }, 'Collected listing URLs')
+    await onProgress(0, listingUrls.length, `Found ${listingUrls.length} listings — visiting each`)
 
     let processed = 0
 
     for (const url of listingUrls) {
-      if (await shouldStop()) {   
+      if (await shouldStop()) {
         logger.info({ jobId }, 'Stop signal received — halting scrape')
         break
       }
@@ -85,14 +86,15 @@ async function collectListingUrls(
   page: Page,
   maxResults: number,
   jobId: string,
-  shouldStop: () => Promise<boolean>   // ← async
+  shouldStop: () => Promise<boolean>,
+  onProgress: (processed: number, total: number, currentStep: string) => Promise<void>
 ): Promise<string[]> {
   const urls = new Set<string>()
   let previousCount = 0
   let staleScrolls = 0
   const MAX_STALE = 5
 
-  while (urls.size < maxResults && !await shouldStop()) {   // ← await
+  while (urls.size < maxResults && !(await shouldStop())) {
     const links = await page.$$eval(
       `${selectors.search.resultsContainer} a[href*="/maps/place/"]`,
       els => els.map(el => (el as HTMLAnchorElement).href)
@@ -104,6 +106,9 @@ async function collectListingUrls(
     }
 
     logger.debug({ jobId, collected: urls.size, target: maxResults }, 'Scrolling...')
+
+    // NEW — actually push progress to the UI during scroll phase
+    await onProgress(urls.size, maxResults, `Scrolling — found ${urls.size} so far`)
 
     if (urls.size === previousCount) {
       staleScrolls++

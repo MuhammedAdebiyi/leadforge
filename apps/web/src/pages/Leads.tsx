@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Building2, Star, Phone, Mail, MapPin, ExternalLink, Send } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Building2, Star, Phone, Mail, MapPin, ExternalLink, Send,
+  MessageCircle, CheckCircle2, Trophy, Archive,
+} from 'lucide-react'
 import { businessApi } from '../lib/api'
 import toast from 'react-hot-toast'
-
-
 
 function Spinner() {
   return (
@@ -16,13 +17,17 @@ function Spinner() {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  QUALIFIED:        'bg-gold-soft border-gold text-ink',
-  DISCOVERED:       'border-ink bg-paper-1 text-ink-dim',
-  WEBSITE_CHECKED:  'border-ink bg-paper-1 text-ink-dim',
-  EMAIL_ENRICHED:   'border-ink bg-paper text-rust',
-  SENT_TO_TELEGRAM: 'border-ink bg-paper text-rust',
-  EXPORTED:         'border-ink bg-paper-2 text-ink-dim',
-  ARCHIVED:         'border-ink bg-paper-2 text-ink-muted',
+  DISCOVERED:          'border-ink bg-paper-1 text-ink-dim',
+  VALIDATED:            'border-ink bg-paper-1 text-ink-dim',
+  QUALIFIED:            'bg-gold-soft border-gold text-ink',
+  EMAIL_ENRICHED:       'border-ink bg-paper text-rust',
+  READY_FOR_OUTREACH:   'bg-gold-soft border-gold text-ink',
+  SENT_TO_TELEGRAM:     'border-ink bg-paper text-rust',
+  CONTACTED:            'border-rust bg-paper text-rust',
+  REPLIED:              'border-rust bg-gold-soft text-ink',
+  CUSTOMER:             'border-ink bg-ink text-paper',
+  EXPORTED:             'border-ink bg-paper-2 text-ink-dim',
+  ARCHIVED:             'border-ink bg-paper-2 text-ink-muted',
 }
 
 function StatusTag({ status }: { status: string }) {
@@ -55,19 +60,38 @@ function EmptyState({ title, description }: { title: string; description: string
   )
 }
 
-// ── Filters ───────────────────────────────────────────────────────────────────
+// ── Filters — match the real pipeline stages ─────────────────────────────────
 
 const FILTERS = [
   { label: 'All',       value: '' },
   { label: 'Qualified', value: 'QUALIFIED' },
+  { label: 'Ready',     value: 'READY_FOR_OUTREACH' },
   { label: 'Sent',      value: 'SENT_TO_TELEGRAM' },
-  { label: 'Enriched',  value: 'EMAIL_ENRICHED' },
-  { label: 'Exported',  value: 'EXPORTED' },
+  { label: 'Contacted', value: 'CONTACTED' },
+  { label: 'Replied',   value: 'REPLIED' },
+  { label: 'Customers', value: 'CUSTOMER' },
 ]
+
+// ── Manual CRM transitions — mirrors API's MANUAL_TRANSITIONS map ────────────
+
+const NEXT_ACTIONS: Record<string, { status: string; label: string; icon: any }[]> = {
+  SENT_TO_TELEGRAM: [
+    { status: 'CONTACTED', label: 'Contacted', icon: MessageCircle },
+  ],
+  CONTACTED: [
+    { status: 'REPLIED', label: 'Replied', icon: CheckCircle2 },
+    { status: 'ARCHIVED', label: 'Archive', icon: Archive },
+  ],
+  REPLIED: [
+    { status: 'CUSTOMER', label: 'Customer', icon: Trophy },
+    { status: 'ARCHIVED', label: 'Archive', icon: Archive },
+  ],
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function Leads() {
+  const qc = useQueryClient()
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
 
@@ -86,13 +110,23 @@ export function Leads() {
     catch { toast.error('Failed') }
   }
 
+  const statusMutation = useMutation({
+    mutationFn: ({ id, newStatus }: { id: string; newStatus: string }) =>
+      businessApi.updateStatus(id, newStatus),
+    onSuccess: (_res, vars) => {
+      toast.success(`Moved to ${vars.newStatus.replace(/_/g, ' ')}`)
+      qc.invalidateQueries({ queryKey: ['businesses'] })
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Transition failed'),
+  })
+
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fade-in">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap border-b-3 border-ink pb-6">
         <div>
-          <p className="label mb-1">Qualified leads</p>
+          <p className="label mb-1">Lead pipeline</p>
           <h1 className="text-3xl font-display font-bold text-ink tracking-tight">
             Leads
           </h1>
@@ -128,77 +162,107 @@ export function Leads() {
         <>
           {/* Lead rows */}
           <div className="card divide-y-3 divide-ink">
-            {businesses.map((b: any) => (
-              <div key={b.id} className="px-6 py-5 hover:bg-paper-1 transition-colors">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
+            {businesses.map((b: any) => {
+              const actions = NEXT_ACTIONS[b.status] ?? []
+              return (
+                <div key={b.id} className="px-6 py-5 hover:bg-paper-1 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
 
-                    {/* Name + category */}
-                    <div className="flex items-center gap-2.5 mb-2 flex-wrap">
-                      <span className="font-display font-bold text-ink text-base">{b.name}</span>
-                      {b.category && (
-                        <span className="font-mono text-2xs uppercase tracking-wide text-ink-muted border-2 border-ink px-2 py-0.5 bg-paper-1">
-                          {b.category}
-                        </span>
-                      )}
+                      {/* Name + category */}
+                      <div className="flex items-center gap-2.5 mb-2 flex-wrap">
+                        <span className="font-display font-bold text-ink text-base">{b.name}</span>
+                        {b.category && (
+                          <span className="font-mono text-2xs uppercase tracking-wide text-ink-muted border-2 border-ink px-2 py-0.5 bg-paper-1">
+                            {b.category}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Contact row */}
+                      <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-dim mb-3 font-mono">
+                        {b.phone && (
+                          <span className="flex items-center gap-1.5">
+                            <Phone size={10} className="shrink-0" /> {b.phone}
+                          </span>
+                        )}
+                        {b.email && (
+                          <span className="flex items-center gap-1.5">
+                            <Mail size={10} className="shrink-0" /> {b.email}
+                          </span>
+                        )}
+                        {b.address && (
+                          <span className="flex items-center gap-1.5 truncate">
+                            <MapPin size={10} className="shrink-0" />
+                            <span className="truncate max-w-xs">{b.address}</span>
+                          </span>
+                        )}
+                        {b.rating && (
+                          <span className="flex items-center gap-1.5">
+                            <Star size={10} className="fill-gold text-gold shrink-0" />
+                            {b.rating} · {b.reviewCount?.toLocaleString()} reviews
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StatusTag status={b.status} />
+                        {b.contactedAt && (
+                          <span className="text-2xs font-mono text-ink-muted">
+                            contacted {new Date(b.contactedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Contact row */}
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-dim mb-3 font-mono">
-                      {b.phone && (
-                        <span className="flex items-center gap-1.5">
-                          <Phone size={10} className="shrink-0" /> {b.phone}
-                        </span>
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <ScorePill score={b.leadScore} />
+                      {b.mapsUrl && (
+                        <a
+                          href={b.mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-ghost px-2.5 py-2 text-xs"
+                          title="Open in Maps"
+                        >
+                          <ExternalLink size={13} />
+                        </a>
                       )}
-                      {b.email && (
-                        <span className="flex items-center gap-1.5">
-                          <Mail size={10} className="shrink-0" /> {b.email}
-                        </span>
-                      )}
-                      {b.address && (
-                        <span className="flex items-center gap-1.5 truncate">
-                          <MapPin size={10} className="shrink-0" />
-                          <span className="truncate max-w-xs">{b.address}</span>
-                        </span>
-                      )}
-                      {b.rating && (
-                        <span className="flex items-center gap-1.5">
-                          <Star size={10} className="fill-gold text-gold shrink-0" />
-                          {b.rating} · {b.reviewCount?.toLocaleString()} reviews
-                        </span>
+                      {b.status === 'QUALIFIED' && (
+                        <button
+                          onClick={() => retry(b.id)}
+                          className="btn-ghost px-2.5 py-2 text-xs"
+                          title="Send to Telegram"
+                        >
+                          <Send size={13} />
+                        </button>
                       )}
                     </div>
-
-                    <StatusTag status={b.status} />
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <ScorePill score={b.leadScore} />
-                    {b.mapsUrl && (
-                      <a
-                        href={b.mapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-ghost px-2.5 py-2 text-xs"
-                        title="Open in Maps"
-                      >
-                        <ExternalLink size={13} />
-                      </a>
-                    )}
-                    {b.status === 'QUALIFIED' && (
-                      <button
-                        onClick={() => retry(b.id)}
-                        className="btn-ghost px-2.5 py-2 text-xs"
-                        title="Send to Telegram"
-                      >
-                        <Send size={13} />
-                      </button>
-                    )}
-                  </div>
+                  {/* CRM transition buttons — only shown when actions exist */}
+                  {actions.length > 0 && (
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t-2 border-ink/10">
+                      <span className="font-mono text-2xs uppercase tracking-wide text-ink-muted mr-1">
+                        Mark as:
+                      </span>
+                      {actions.map(({ status: newStatus, label, icon: Icon }) => (
+                        <button
+                          key={newStatus}
+                          onClick={() => statusMutation.mutate({ id: b.id, newStatus })}
+                          disabled={statusMutation.isPending}
+                          className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-40"
+                        >
+                          <Icon size={12} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Pagination */}

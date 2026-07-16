@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 
 const DEFAULT_FORM: CreateJobInput = {
   keyword: '', city: '', country: 'NG', radius: 10,
-  maxResults: 100, telegramDestination: '',
+  maxResults: 100, telegramDestination: '8238618115',
   useEmailEnrichment: false, leadScoreThreshold: 50,
 }
 

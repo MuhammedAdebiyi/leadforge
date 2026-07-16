@@ -17,7 +17,7 @@ interface JobMessage {
   maxResults: number
 }
 
-async function processJob(msg: ConsumeMessage, channel: Channel, logger: AppLogger): Promise<void> {
+async function processJob(msg: ConsumeMessage, _channel: Channel, logger: AppLogger): Promise<void> {
   const jobMessage: JobMessage = JSON.parse(msg.content.toString())
   const { jobId, keyword, city, country, radius, maxResults } = jobMessage
   const startedAt = Date.now()
@@ -33,6 +33,7 @@ async function processJob(msg: ConsumeMessage, channel: Channel, logger: AppLogg
   await deduplicator.preloadFromDatabase()
 
   const { context, release } = await acquireBrowser()
+
   let totalFound = 0
   let qualifiedCount = 0
 
@@ -53,8 +54,14 @@ async function processJob(msg: ConsumeMessage, channel: Channel, logger: AppLogg
           JSON.stringify({ processed, total, currentStep, pct })
         )
         if (processed % 10 === 0) {
-          await prisma.job.update({ where: { id: jobId }, data: { progress: pct, totalBusinesses: processed } })
-          await prisma.jobProgress.update({ where: { jobId }, data: { processedCount: processed } })
+          await prisma.job.update({
+            where: { id: jobId },
+            data: { progress: pct, totalBusinesses: processed },
+          })
+          await prisma.jobProgress.update({
+            where: { jobId },
+            data: { processedCount: processed },
+          })
         }
       },
 
@@ -68,23 +75,39 @@ async function processJob(msg: ConsumeMessage, channel: Channel, logger: AppLogg
 
         const leadScore = scoreLead(raw)
 
+        // Save as DISCOVERED — search-worker only finds businesses.
+        // website-worker is responsible for validating + qualifying them.
         const business = await prisma.business.upsert({
           where: { placeId_jobId: { placeId: raw.placeId, jobId } },
           create: {
-            placeId: raw.placeId, jobId, name: raw.name, phone: raw.phone,
-            address: raw.address, website: raw.website, hasWebsite: raw.hasWebsite,
-            category: raw.category, rating: raw.rating, reviewCount: raw.reviewCount,
-            mapsUrl: raw.mapsUrl, latitude: raw.latitude, longitude: raw.longitude,
-            leadScore, status: 'WEBSITE_CHECKED',
+            placeId: raw.placeId,
+            jobId,
+            name: raw.name,
+            phone: raw.phone,
+            address: raw.address,
+            website: raw.website,
+            hasWebsite: raw.hasWebsite,
+            category: raw.category,
+            rating: raw.rating,
+            reviewCount: raw.reviewCount,
+            mapsUrl: raw.mapsUrl,
+            latitude: raw.latitude,
+            longitude: raw.longitude,
+            leadScore,
+            status: 'DISCOVERED',
           },
           update: {},
         })
 
         await deduplicator.markProcessed(raw.placeId)
 
+        // Send everything discovered to website-worker for validation —
+        // even ones that already look like they have a website, since
+        // website-worker does the authoritative check.
+        publish(QUEUES.WEBSITE, { businessId: business.id, jobId }, business.id)
+
         if (!raw.hasWebsite) {
-          publish(QUEUES.WEBSITE, { businessId: business.id, jobId }, business.id)
-          qualifiedCount++
+          qualifiedCount++ // rough running count — website-worker confirms for real
         }
 
         await prisma.jobProgress.update({
@@ -96,30 +119,44 @@ async function processJob(msg: ConsumeMessage, channel: Channel, logger: AppLogg
 
     await prisma.job.update({
       where: { id: jobId },
-      data: { status: 'COMPLETED', completedAt: new Date(), totalBusinesses: totalFound, qualifiedBusinesses: qualifiedCount, progress: 100 },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        totalBusinesses: totalFound,
+        progress: 100,
+      },
     })
 
     const duration = Date.now() - startedAt
-    logger.info({ jobId, totalFound, qualifiedCount, durationMs: duration }, '✅ Job completed')
+    logger.info({ jobId, totalFound, durationMs: duration }, '✅ Job completed — handed off to website-worker for validation')
 
     await prisma.workerLog.create({
       data: { workerName: 'search-worker', jobId, duration: Math.round(duration / 1000), status: 'COMPLETED' },
     })
   } catch (err) {
+    logger.error({ err, jobId }, '❌ Job failed')
+
     await prisma.job.update({
       where: { id: jobId },
       data: { status: 'FAILED', errorMessage: err instanceof Error ? err.message : String(err) },
     })
+
     await prisma.workerLog.create({
-      data: { workerName: 'search-worker', jobId, duration: Math.round((Date.now() - startedAt) / 1000), status: 'FAILED', message: err instanceof Error ? err.message : String(err) },
+      data: {
+        workerName: 'search-worker',
+        jobId,
+        duration: Math.round((Date.now() - startedAt) / 1000),
+        status: 'FAILED',
+        message: err instanceof Error ? err.message : String(err),
+      },
     })
+
     throw err
   } finally {
     await release()
   }
 }
 
-// ── 30 lines — everything else lives in createWorker ─────────────────────────
 createWorker({
   name: 'search-worker',
   queue: QUEUES.JOB,

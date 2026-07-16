@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -55,8 +56,8 @@ model Job {
   updatedAt           DateTime  @updatedAt
   completedAt         DateTime?
 
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businesses Business[]
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businesses  Business[]
   jobProgress JobProgress?
   workerLogs  WorkerLog[]
 
@@ -96,6 +97,12 @@ model Business {
   mapsUrl     String?
   leadScore   Int        @default(0)
   status      LeadStatus @default(DISCOVERED)
+
+  contactedAt DateTime?
+  repliedAt   DateTime?
+  convertedAt DateTime?
+  notes       String?
+
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -149,10 +156,14 @@ enum JobStatus {
 
 enum LeadStatus {
   DISCOVERED
-  WEBSITE_CHECKED
-  EMAIL_ENRICHED
+  VALIDATED
   QUALIFIED
+  EMAIL_ENRICHED
+  READY_FOR_OUTREACH
   SENT_TO_TELEGRAM
+  CONTACTED
+  REPLIED
+  CUSTOMER
   EXPORTED
   ARCHIVED
 }
