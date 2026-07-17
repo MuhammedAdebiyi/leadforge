@@ -8,6 +8,7 @@ COPY workers ./workers
 RUN npm ci
 
 ARG SERVICE_PATH
+ARG ENTRY_FILE=index.ts
 RUN npm run build --workspace=${SERVICE_PATH} 2>/dev/null || true
 RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 
@@ -17,5 +18,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=base /app ./
 ARG SERVICE_PATH
+ARG ENTRY_FILE=index.ts
 ENV SERVICE_PATH=${SERVICE_PATH}
-CMD ["sh", "-c", "npx tsx ${SERVICE_PATH}/src/index.ts"]
+ENV ENTRY_FILE=${ENTRY_FILE}
+CMD ["sh", "-c", "npx tsx ${SERVICE_PATH}/src/${ENTRY_FILE}"]
