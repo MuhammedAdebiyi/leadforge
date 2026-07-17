@@ -26,7 +26,7 @@ export async function scrapeGoogleMaps(context: BrowserContext, opts: ScrapeOpti
   const { keyword, city, country, maxResults, jobId, onBusiness, onProgress, shouldStop } = opts
 
   const query = encodeURIComponent(`${keyword} in ${city}, ${country}`)
-  const searchUrl = `https://www.google.com/maps/search/${query}`
+  const searchUrl = `https://www.google.com/maps/search/${query}?hl=en&gl=us`
 
   logger.info({ jobId, query: `${keyword} in ${city}` }, 'Starting scrape')
 
@@ -107,7 +107,6 @@ async function collectListingUrls(
 
     logger.debug({ jobId, collected: urls.size, target: maxResults }, 'Scrolling...')
 
-    // NEW — actually push progress to the UI during scroll phase
     await onProgress(urls.size, maxResults, `Scrolling — found ${urls.size} so far`)
 
     if (urls.size === previousCount) {
@@ -138,11 +137,29 @@ async function collectListingUrls(
 
 async function acceptCookies(page: Page): Promise<void> {
   try {
+    // Google's consent interstitial redirects through consent.google.com
+    // regardless of language — check the URL first, this is more reliable
+    // than matching button text which varies by locale (EN/DE/FR/etc).
+    if (page.url().includes('consent.google.com')) {
+      const buttons = await page.$$('button')
+      for (const btn of buttons) {
+        const text = (await btn.innerText()).toLowerCase()
+        if (/accept|akzeptieren|accepter|aceptar|accetta/.test(text)) {
+          await btn.click()
+          await page.waitForNavigation({ timeout: 5000 }).catch(() => {})
+          return
+        }
+      }
+    }
+
+    // Fallback: try the common English selector directly on the Maps page itself
     const acceptBtn = await page.$('button[aria-label="Accept all"]')
-    if (acceptBtn) await acceptBtn.click()
-    await page.getByText('Accept all').click({ timeout: 3000 }).catch(() => {})
+    if (acceptBtn) {
+      await acceptBtn.click()
+      return
+    }
   } catch {
-    // no cookie banner
+    // no cookie banner present — safe to continue
   }
 }
 
