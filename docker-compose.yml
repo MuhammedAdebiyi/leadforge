@@ -1,6 +1,6 @@
 services:
   leadforge-api:
-    image: ghcr.io/MuhammedAdebiyi/leadforge/api:latest
+    image: ghcr.io/muhammedadebiyi/leadforge/api:latest
     container_name: leadforge-api
     restart: unless-stopped
     env_file: .env.production
@@ -10,7 +10,7 @@ services:
       - leadforge-net
 
   leadforge-email-worker:
-    image: ghcr.io/MuhammedAdebiyi/leadforge/email-worker:latest
+    image: ghcr.io/muhammedadebiyi/leadforge/email-worker:latest
     container_name: leadforge-email-worker
     restart: unless-stopped
     env_file: .env.production
@@ -18,7 +18,7 @@ services:
       - leadforge-net
 
   leadforge-telegram-worker:
-    image: ghcr.io/MuhammedAdebiyi/leadforge/telegram-worker:latest
+    image: ghcr.io/muhammedadebiyi/leadforge/telegram-worker:latest
     container_name: leadforge-telegram-worker
     restart: unless-stopped
     env_file: .env.production
@@ -26,7 +26,7 @@ services:
       - leadforge-net
 
   leadforge-export-worker:
-    image: ghcr.io/MuhammedAdebiyi/leadforge/export-worker:latest
+    image: ghcr.io/muhammedadebiyi/leadforge/export-worker:latest
     container_name: leadforge-export-worker
     restart: unless-stopped
     env_file: .env.production
@@ -34,7 +34,7 @@ services:
       - leadforge-net
 
   leadforge-website-worker:
-    image: ghcr.io/MuhammedAdebiyi/leadforge/website-worker:latest
+    image: ghcr.io/muhammedadebiyi/leadforge/website-worker:latest
     container_name: leadforge-website-worker
     restart: unless-stopped
     env_file: .env.production
@@ -42,7 +42,7 @@ services:
       - leadforge-net
 
   leadforge-search-worker:
-    image: ghcr.io/MuhammedAdebiyi/leadforge/search-worker:latest
+    image: ghcr.io/muhammedadebiyi/leadforge/search-worker:latest
     container_name: leadforge-search-worker
     restart: unless-stopped
     env_file: .env.production
