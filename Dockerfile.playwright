@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.45.0-jammy AS base
+FROM mcr.microsoft.com/playwright:v1.61.1-jammy AS base
 WORKDIR /app
 COPY package.json package-lock.json turbo.json ./
 COPY packages ./packages
@@ -7,7 +7,7 @@ COPY workers ./workers
 RUN npm ci
 RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 
-FROM mcr.microsoft.com/playwright:v1.45.0-jammy
+FROM mcr.microsoft.com/playwright:v1.61.1-jammy
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=base /app ./

@@ -19,21 +19,27 @@ jobs:
           - service: api
             path: apps/api
             dockerfile: Dockerfile.light
+            entry: server.ts
           - service: email-worker
             path: workers/email-worker
             dockerfile: Dockerfile.light
+            entry: index.ts
           - service: telegram-worker
             path: workers/telegram-worker
             dockerfile: Dockerfile.light
+            entry: index.ts
           - service: export-worker
             path: workers/export-worker
             dockerfile: Dockerfile.light
+            entry: index.ts
           - service: website-worker
             path: workers/website-worker
             dockerfile: Dockerfile.playwright
+            entry: index.ts
           - service: search-worker
             path: workers/search-worker
             dockerfile: Dockerfile.playwright
+            entry: index.ts
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,6 +65,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           build-args: |
             SERVICE_PATH=${{ matrix.path }}
+            ENTRY_FILE=${{ matrix.entry }}
           push: true
           tags: ghcr.io/${{ steps.repo.outputs.name }}/${{ matrix.service }}:latest
           cache-from: type=gha
