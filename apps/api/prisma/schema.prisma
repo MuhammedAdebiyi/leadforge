@@ -9,15 +9,24 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
+enum SubscriptionStatus {
+  NONE
+  ACTIVE
+  EXPIRED
+}
+
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  passwordHash   String
-  name           String
-  telegramChatId String?
-  isVerified     Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  email                 String   @unique
+  passwordHash          String
+  name                  String
+  telegramChatId        String?  @unique
+  isVerified            Boolean  @default(false)
+  subscriptionStatus    SubscriptionStatus @default(NONE)
+  subscriptionExpiresAt DateTime?
+  bachsCustomerId       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   jobs          Job[]
   refreshTokens RefreshToken[]
