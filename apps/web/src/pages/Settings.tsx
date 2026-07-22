@@ -77,12 +77,11 @@ export function Settings() {
             <p className="text-sm text-chalk-muted mb-4 leading-relaxed">
               Connect your Telegram to receive qualified leads instantly. This can only be set
               once, so make sure it's the right chat before saving.{' '}
-              
+              <a>
                 href="https://t.me/userinfobot"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-chalk hover:text-signal transition-colors underline underline-offset-2"
-              >
                 Get your chat ID ↗
               </a>
             </p>
