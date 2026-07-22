@@ -73,10 +73,11 @@ async function processJob(msg: ConsumeMessage, _channel: Channel, logger: AppLog
           return
         }
 
-        const leadScore = scoreLead(raw)
-
         // Save as DISCOVERED — search-worker only finds businesses.
-        // website-worker is responsible for validating + qualifying them.
+        // Score is NOT computed here: raw.hasWebsite is a rough guess from
+        // the Maps listing page, not the authoritative check. website-worker
+        // determines the real hasWebsite and computes the real score right
+        // after, so scoring never happens on stale/wrong website data.
         const business = await prisma.business.upsert({
           where: { placeId_jobId: { placeId: raw.placeId, jobId } },
           create: {
@@ -93,7 +94,7 @@ async function processJob(msg: ConsumeMessage, _channel: Channel, logger: AppLog
             mapsUrl: raw.mapsUrl,
             latitude: raw.latitude,
             longitude: raw.longitude,
-            leadScore,
+            leadScore: 0,
             status: 'DISCOVERED',
           },
           update: {},

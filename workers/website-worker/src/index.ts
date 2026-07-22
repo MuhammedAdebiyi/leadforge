@@ -1,5 +1,6 @@
 import { createWorker, prisma, publish, QUEUES } from '@leadforge/shared'
 import { checkWebsite } from './checker'
+import { scoreLead } from './scorer'
 import type { ConsumeMessage, Channel } from 'amqplib'
 import type { AppLogger } from '@leadforge/shared'
 
@@ -55,6 +56,10 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
     return
   }
 
+  // Compute the real lead score now, using the authoritative hasWebsite
+  // result we just determined — never trust search-worker's rough guess.
+  const leadScore = scoreLead({ ...business, hasWebsite: false })
+
   await prisma.business.update({
     where: { id: businessId },
     data: {
@@ -62,6 +67,7 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
       hasSocialPresence: result.hasSocialPresence,
       website: null,
       email: result.scrapedEmail,
+      leadScore,
       status: 'VALIDATED',
     },
   })

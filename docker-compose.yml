@@ -35,17 +35,19 @@ services:
 
   leadforge-website-worker:
     image: ghcr.io/muhammedadebiyi/leadforge/website-worker:latest
-    container_name: leadforge-website-worker
     restart: unless-stopped
     env_file: .env.production
+    deploy:
+      replicas: 4
     networks:
       - leadforge-net
 
   leadforge-search-worker:
     image: ghcr.io/muhammedadebiyi/leadforge/search-worker:latest
-    container_name: leadforge-search-worker
     restart: unless-stopped
     env_file: .env.production
+    deploy:
+      replicas: 4
     networks:
       - leadforge-net
 

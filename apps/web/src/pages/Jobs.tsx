@@ -99,6 +99,10 @@ const DEFAULT: CreateJobInput = {
   useEmailEnrichment: false, leadScoreThreshold: 50,
 }
 
+// Thresholds this high leave almost nothing qualified — likely a mistake
+// (e.g. typed the same number as Max Results). Confirm before submitting.
+const SUSPICIOUS_THRESHOLD = 90
+
 interface Props { _externalOpen?: boolean; onClose?: () => void }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -137,6 +141,17 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed'),
   })
+
+  const handleStartJob = () => {
+    if (form.leadScoreThreshold >= SUSPICIOUS_THRESHOLD) {
+      const confirmed = window.confirm(
+        `Minimum Score is set to ${form.leadScoreThreshold}. This is very high and may disqualify ` +
+        `every lead found (most leads score 40–75). Continue anyway?`
+      )
+      if (!confirmed) return
+    }
+    createMutation.mutate()
+  }
 
   return (
     <>
@@ -254,15 +269,18 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
                 onChange={e => set('radius', Number(e.target.value))} />
             </div>
             <div>
-              <label className="label">Max Results</label>
+              <label className="label">Number of businesses to scrape</label>
               <input type="number" className={inputCls} value={form.maxResults}
                 onChange={e => set('maxResults', Number(e.target.value))} />
             </div>
             <div>
-              <label className="label">Min Score (0–100)</label>
+              <label className="label">Minimum score to qualify (0–100)</label>
               <input type="number" className={inputCls} min={0} max={100}
                 value={form.leadScoreThreshold}
                 onChange={e => set('leadScoreThreshold', Number(e.target.value))} />
+              <p className="text-2xs text-ink-muted mt-1.5 font-mono">
+                Lower = more leads. Most leads score 40–75 — values above 90 will likely qualify nothing.
+              </p>
             </div>
           </div>
 
@@ -274,30 +292,10 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
             <p className="text-2xs text-ink-muted mt-1.5 font-mono">Qualified leads will be sent here.</p>
           </div>
 
-          {/* Toggle — brutalist square switch, not a rounded pill */}
-          <label className="flex items-center gap-3 cursor-pointer py-1">
-            <div
-              onClick={() => set('useEmailEnrichment', !form.useEmailEnrichment)}
-              className={cn(
-                'w-10 h-5 border-2 border-ink relative shrink-0 cursor-pointer transition-colors',
-                form.useEmailEnrichment ? 'bg-gold' : 'bg-paper-1'
-              )}
-            >
-              <span className={cn(
-                'absolute top-0.5 w-3.5 h-3.5 border-2 border-ink bg-paper transition-transform',
-                form.useEmailEnrichment ? 'translate-x-[19px]' : 'translate-x-0.5'
-              )} />
-            </div>
-            <div>
-              <p className="text-sm text-ink font-semibold">Email enrichment</p>
-              <p className="text-2xs text-ink-muted font-mono">Uses Hunter.io to find email addresses</p>
-            </div>
-          </label>
-
           <div className="flex gap-2 pt-1">
             <button onClick={close} className="btn-ghost flex-1 justify-center py-2.5">Cancel</button>
             <button
-              onClick={() => createMutation.mutate()}
+              onClick={handleStartJob}
               disabled={!form.keyword || !form.city || createMutation.isPending}
               className="btn-primary flex-1 justify-center py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
