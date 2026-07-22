@@ -65,6 +65,17 @@ export class AuthService {
   }
 
   async connectTelegram(userId: string, chatId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { telegramChatId: true } })
+    if (!user) throw { statusCode: 404, message: 'User not found' }
+    if (user.telegramChatId) {
+      throw { statusCode: 400, message: 'Telegram is already connected and cannot be changed. Contact support if you need this updated.' }
+    }
+
+    const existing = await prisma.user.findUnique({ where: { telegramChatId: chatId }, select: { id: true } })
+    if (existing) {
+      throw { statusCode: 409, message: 'This Telegram chat ID is already connected to another account.' }
+    }
+
     return prisma.user.update({
       where: { id: userId },
       data: { telegramChatId: chatId },
