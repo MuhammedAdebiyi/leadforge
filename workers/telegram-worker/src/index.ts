@@ -1,5 +1,7 @@
 import { createWorker, prisma, QUEUES } from '@leadforge/shared'
 import { sendTelegramMessage } from './sender'
+import { startCommandPolling } from './commands'
+import { createLogger } from '@leadforge/shared'
 import { formatLeadMessage } from './formatter'
 import type { ConsumeMessage, Channel } from 'amqplib'
 import type { AppLogger } from '@leadforge/shared'
@@ -68,3 +70,7 @@ createWorker({
   queue: QUEUES.TELEGRAM,
   onMessage: processMessage,
 })
+
+// Run command polling alongside the queue consumer — fire and forget,
+// it loops internally via long-polling until the process exits.
+startCommandPolling(createLogger('telegram-worker:commands'))

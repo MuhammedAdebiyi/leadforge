@@ -76,3 +76,18 @@ async function fetchWithRetry(
 function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms))
 }
+
+export interface TelegramUpdate {
+  update_id: number
+  message?: {
+    chat: { id: number }
+    text?: string
+  }
+}
+
+export async function getUpdates(offset: number): Promise<TelegramUpdate[]> {
+  const url = `${TELEGRAM_API}/bot${BOT_TOKEN}/getUpdates?offset=${offset}&timeout=25`
+  const res = await fetch(url, { signal: AbortSignal.timeout(30000) })
+  const data = await res.json() as { ok: boolean; result?: TelegramUpdate[] }
+  return data.ok && data.result ? data.result : []
+}
