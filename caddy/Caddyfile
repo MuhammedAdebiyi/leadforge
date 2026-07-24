@@ -1,0 +1,3 @@
+api.leadforge.cv {
+    reverse_proxy leadforge-api:4000
+}
