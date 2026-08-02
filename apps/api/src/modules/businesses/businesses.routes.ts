@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { BusinessesService } from './businesses.service'
 import { paginationSchema, exportSchema } from '@leadforge/shared'
 import { authenticate } from '../../middleware/auth'
+import { requireActiveSubscription } from '../../middleware/subscription'
 import { z } from 'zod'
 
 const filterSchema = z.object({
@@ -13,6 +14,7 @@ const filterSchema = z.object({
 export async function businessRoutes(fastify: FastifyInstance) {
   const svc = new BusinessesService()
   fastify.addHook('preHandler', authenticate)
+  fastify.addHook('preHandler', requireActiveSubscription)
 
   fastify.get('/', async (req, reply) => {
     const { page, limit } = paginationSchema.parse(req.query)

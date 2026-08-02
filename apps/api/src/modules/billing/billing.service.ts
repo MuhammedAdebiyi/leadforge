@@ -1,53 +1,76 @@
-import Bachs from '@bachs/sdk'
 import { prisma, createLogger } from '@leadforge/shared'
 import crypto from 'crypto'
 
 const logger = createLogger('billing-service')
 
-const bachs = new Bachs({ key: process.env.BACHS_SECRET_KEY! })
+const BACHS_BASE_URL = process.env.NODE_ENV === 'production'
+  ? 'https://api.bachs.io/v1'
+  : 'https://sandbox-api.bachs.io/v1'
+
+const SECRET_KEY = process.env.BACHS_SECRET_KEY!
 const PRODUCT_ID = process.env.BACHS_PRODUCT_ID!
 const WEBHOOK_SECRET = process.env.BACHS_WEBHOOK_SECRET!
+
+async function bachsFetch(path: string, options: RequestInit = {}) {
+  const res = await fetch(`${BACHS_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${SECRET_KEY}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+  const data = await res.json()
+  if (!res.ok) {
+    logger.error({ path, status: res.status, data }, 'Bachs API error')
+    throw { statusCode: 502, message: 'Payment provider error — please try again' }
+  }
+  return data
+}
 
 export class BillingService {
   async createCheckoutSession(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw { statusCode: 404, message: 'User not found' }
 
-    const session = await bachs.checkout.create({
-      product: PRODUCT_ID,
-      billing: 'subscription',
-      tax: 'auto',
-      crypto: true,
-      settlement: 'NGN',
-      customer_email: user.email,
-      metadata: { userId },
+    // NOTE: endpoint path inferred from Bachs' documented /v1/ REST pattern
+    // and their SDK's checkout.create() naming — not yet confirmed against
+    // a real successful call. Verify with a sandbox test before trusting
+    // this in production.
+    const session = await bachsFetch('/checkout/sessions', {
+      method: 'POST',
+      body: JSON.stringify({
+        product: PRODUCT_ID,
+        billing: 'subscription',
+        tax: 'auto',
+        crypto: true,
+        settlement: 'NGN',
+        customer_email: user.email,
+        metadata: { userId },
+      }),
     })
 
     logger.info({ userId, sessionId: session.id }, 'Checkout session created')
     return session
   }
 
-  /**
-   * Verifies the X-Bachs-Signature header (HMAC-SHA256 over the raw request
-   * body) before trusting any webhook payload.
-   */
   verifyWebhookSignature(rawBody: string, signature: string): boolean {
     const expected = crypto.createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest('hex')
     try {
       return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
     } catch {
-      return false // length mismatch etc — definitely not a match
+      return false
     }
   }
 
   async handleWebhookEvent(event: any) {
     logger.info({ type: event.type ?? event.event }, 'Received Bachs webhook event')
 
-    // NOTE: field names below (event.type, event.data, subscription.customer_email,
-    // subscription.current_period_end) are best-guess based on common webhook
-    // conventions and Bachs' documented event names (customer.subscription.*).
-    // Confirm against a real test webhook delivery from the Bachs dashboard
-    // before going live — adjust field paths here if they differ.
+    // NOTE: field names below (event.type, event.data, customer_email,
+    // current_period_end) are best-guess based on common webhook conventions
+    // and Bachs' documented event names. Confirm against a real test webhook
+    // delivery from the Bachs dashboard before going live.
     const eventType = event.type ?? event.event
     const data = event.data?.object ?? event.data
 
@@ -57,7 +80,7 @@ export class BillingService {
         const email = data.customer_email ?? data.customer?.email
         const expiresAt = data.current_period_end
           ? new Date(data.current_period_end * 1000)
-          : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000) // fallback: +31 days
+          : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000)
 
         if (!email) {
           logger.warn({ event }, 'Webhook missing customer email — cannot map to user')

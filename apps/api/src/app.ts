@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
+import rawBody from 'fastify-raw-body'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
 import { config, env } from './config'
@@ -9,6 +10,7 @@ import { registerErrorHandler } from './middleware/errorHandler'
 import { authRoutes } from './modules/auth/auth.routes'
 import { jobRoutes } from './modules/jobs/jobs.routes'
 import { businessRoutes } from './modules/businesses/businesses.routes'
+import { billingRoutes } from './modules/billing/billing.routes'
 
 const logger = createLogger('leadforge-api')
 
@@ -26,6 +28,17 @@ export async function buildApp() {
   })
 
   await fastify.register(helmet, { contentSecurityPolicy: false })
+
+  // Needed so webhook signature verification (Bachs) can access the exact
+  // raw bytes of the request body — JSON.stringify(req.body) after Fastify's
+  // default parser has already touched it is NOT guaranteed to match the
+  // bytes the signature was computed over.
+  await fastify.register(rawBody, {
+    field: 'rawBody',
+    global: false,
+    encoding: 'utf8',
+    runFirst: true,
+  })
 
   await fastify.register(cors, {
     origin: env.NODE_ENV === 'production' ? env.FRONTEND_URL : true,
@@ -52,6 +65,7 @@ export async function buildApp() {
   await fastify.register(authRoutes, { prefix: '/api/auth' })
   await fastify.register(jobRoutes, { prefix: '/api/jobs' })
   await fastify.register(businessRoutes, { prefix: '/api/businesses' })
+  await fastify.register(billingRoutes, { prefix: '/api/billing' })
 
   fastify.addHook('onRequest', (req, _reply, done) => {
     logger.info({ method: req.method, url: req.url, reqId: req.id }, 'Incoming')

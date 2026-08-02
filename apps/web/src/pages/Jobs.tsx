@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Pause, Play, X, Trash2, ArrowRight, Briefcase } from 'lucide-react'
+import { Plus, Pause, Play, X, Trash2, ArrowRight, Briefcase, AlertTriangle } from 'lucide-react'
 import { jobsApi, type CreateJobInput } from '../lib/api'
+import { useAuthStore } from '../stores/auth'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 
@@ -63,7 +64,6 @@ function EmptyState({ title, description, action }: { title: string; description
   )
 }
 
-// Brutalist modal — hard border, offset shadow, no blur/rounding
 function Modal({ open, onClose, title, children }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode
 }) {
@@ -91,29 +91,24 @@ const inputCls =
   'w-full bg-paper border-3 border-ink px-3 py-2.5 text-sm text-ink placeholder-ink-muted ' +
   'outline-none focus:shadow-brut transition-shadow font-sans rounded-none'
 
-// ── Form defaults ────────────────────────────────────────────────────────────
-
-const DEFAULT: CreateJobInput = {
+const DEFAULT_BASE = {
   keyword: '', city: '', country: 'NG', radius: 10,
-  maxResults: 100, telegramDestination: '8238618115',
-  useEmailEnrichment: false, leadScoreThreshold: 50,
+  maxResults: 100, useEmailEnrichment: false, leadScoreThreshold: 50,
 }
 
-// Thresholds this high leave almost nothing qualified — likely a mistake
-// (e.g. typed the same number as Max Results). Confirm before submitting.
 const SUSPICIOUS_THRESHOLD = 90
 
 interface Props { _externalOpen?: boolean; onClose?: () => void }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export function Jobs({ _externalOpen, onClose }: Props = {}) {
   const qc = useQueryClient()
   const navigate = useNavigate()
+  const user = useAuthStore(s => s.user)
   const [open, setOpen] = useState(_externalOpen ?? false)
-  const [form, setForm] = useState<CreateJobInput>(DEFAULT)
-  const set = (k: keyof CreateJobInput, v: any) => setForm(f => ({ ...f, [k]: v }))
+  const [form, setForm] = useState(DEFAULT_BASE)
+  const set = (k: keyof typeof DEFAULT_BASE, v: any) => setForm(f => ({ ...f, [k]: v }))
 
+  const hasTelegram = !!user?.telegramChatId
   const close = () => { setOpen(false); onClose?.() }
 
   const { data, isLoading } = useQuery({
@@ -131,18 +126,22 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
   }
 
   const createMutation = useMutation({
-    mutationFn: () => jobsApi.create(form),
+    mutationFn: () => jobsApi.create({ ...form, telegramDestination: user!.telegramChatId! } as CreateJobInput),
     onSuccess: (res) => {
       toast.success('Job created — scraper is running')
       qc.invalidateQueries({ queryKey: ['jobs'] })
       close()
-      setForm(DEFAULT)
+      setForm(DEFAULT_BASE)
       navigate(`/jobs/${res.data.data.id}`)
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed'),
   })
 
   const handleStartJob = () => {
+    if (!hasTelegram) {
+      navigate('/settings')
+      return
+    }
     if (form.leadScoreThreshold >= SUSPICIOUS_THRESHOLD) {
       const confirmed = window.confirm(
         `Minimum Score is set to ${form.leadScoreThreshold}. This is very high and may disqualify ` +
@@ -155,7 +154,6 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
 
   return (
     <>
-      {/* Page content — only when not used as modal trigger from Dashboard */}
       {!_externalOpen && (
         <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fade-in">
 
@@ -244,9 +242,19 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
         </div>
       )}
 
-      {/* New job modal */}
       <Modal open={open || !!_externalOpen} onClose={close} title="New Search Job">
         <div className="space-y-4">
+          {!hasTelegram && (
+            <div className="flex items-start gap-2.5 bg-rust/5 border-2 border-rust px-3 py-2.5 text-sm text-rust">
+              <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+              <span>
+                Connect your Telegram in{' '}
+                <Link to="/settings" onClick={close} className="underline font-semibold">Settings</Link>{' '}
+                before starting a job — that's where your leads will be sent.
+              </span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
               <label className="label">Keyword *</label>
@@ -284,13 +292,11 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
             </div>
           </div>
 
-          <div>
-            <label className="label">Telegram Chat ID</label>
-            <input className={inputCls} placeholder="e.g. 123456789"
-              value={form.telegramDestination}
-              onChange={e => set('telegramDestination', e.target.value)} />
-            <p className="text-2xs text-ink-muted mt-1.5 font-mono">Qualified leads will be sent here.</p>
-          </div>
+          {hasTelegram && (
+            <p className="text-2xs text-ink-muted font-mono">
+              Leads will be sent to your connected Telegram · {user!.telegramChatId}
+            </p>
+          )}
 
           <div className="flex gap-2 pt-1">
             <button onClick={close} className="btn-ghost flex-1 justify-center py-2.5">Cancel</button>
@@ -299,7 +305,7 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
               disabled={!form.keyword || !form.city || createMutation.isPending}
               className="btn-primary flex-1 justify-center py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {createMutation.isPending ? <Spinner /> : 'Start Job →'}
+              {createMutation.isPending ? <Spinner /> : hasTelegram ? 'Start Job →' : 'Go to Settings →'}
             </button>
           </div>
         </div>
