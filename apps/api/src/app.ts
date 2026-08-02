@@ -40,8 +40,10 @@ export async function buildApp() {
     runFirst: true,
   })
 
+  const allowedOrigins = [env.FRONTEND_URL, 'http://localhost:5173'].filter(Boolean)
+
   await fastify.register(cors, {
-    origin: env.NODE_ENV === 'production' ? env.FRONTEND_URL : true,
+    origin: allowedOrigins,
     credentials: true,
   })
 

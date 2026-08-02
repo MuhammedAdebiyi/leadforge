@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import { sendVerificationEmail } from '../email/email.service'
 import { prisma, redis, TTL, createLogger } from '@leadforge/shared'
 import type { RegisterInput, LoginInput } from '@leadforge/shared'
 import type { FastifyInstance } from 'fastify'
@@ -18,9 +19,32 @@ export class AuthService {
       select: { id: true, email: true, name: true, createdAt: true },
     })
 
+    const verificationToken = crypto.randomUUID()
+    await prisma.emailVerificationToken.create({
+      data: {
+        token: verificationToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    })
+    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`
+    await sendVerificationEmail(user.email, user.name, verifyUrl)
+
     logger.info({ userId: user.id }, 'User registered')
     const tokens = await this.generateTokens(user.id)
     return { user, ...tokens }
+  }
+
+  async verifyEmail(token: string) {
+    const record = await prisma.emailVerificationToken.findUnique({ where: { token } })
+    if (!record || record.expiresAt < new Date()) {
+      throw { statusCode: 400, message: 'Verification link is invalid or expired' }
+    }
+
+    await prisma.user.update({ where: { id: record.userId }, data: { isVerified: true } })
+    await prisma.emailVerificationToken.delete({ where: { token } })
+
+    return { success: true }
   }
 
   async login(input: LoginInput) {

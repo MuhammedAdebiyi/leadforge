@@ -42,4 +42,11 @@ export async function authRoutes(fastify: FastifyInstance) {
     const result = await svc.connectTelegram(req.user.sub, chatId)
     return reply.send({ success: true, data: result })
   })
+
+  fastify.post('/verify-email', async (req, reply) => {
+    const { token } = req.body as { token: string }
+    if (!token) return reply.code(400).send({ success: false, message: 'token required' })
+    const result = await svc.verifyEmail(token)
+    return reply.send({ success: true, data: result })
+  })
 }
