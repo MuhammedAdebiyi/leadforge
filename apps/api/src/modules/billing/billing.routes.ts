@@ -17,7 +17,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
   fastify.post('/webhook', {
     config: { rawBody: true },
   }, async (req, reply) => {
-    const signature = req.headers['bachs-signature'] as string | undefined
+    const signature = req.headers['x-paystack-signature'] as string | undefined
     const rawBody = (req as any).rawBody ?? JSON.stringify(req.body)
 
     if (!signature || !svc.verifyWebhookSignature(rawBody, signature)) {

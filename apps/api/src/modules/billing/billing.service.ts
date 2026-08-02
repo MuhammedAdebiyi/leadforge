@@ -3,17 +3,13 @@ import crypto from 'crypto'
 
 const logger = createLogger('billing-service')
 
-const BACHS_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.bachs.io'
-  : 'https://sandbox-api.bachs.io'
-
-const SECRET_KEY = process.env.BACHS_SECRET_KEY!
-const PRODUCT_ID = process.env.BACHS_PRODUCT_ID!
-const WEBHOOK_SECRET = process.env.BACHS_WEBHOOK_SECRET!
+const PAYSTACK_BASE_URL = 'https://api.paystack.co'
+const SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
+const PLAN_CODE = process.env.PAYSTACK_PLAN_CODE!
 const FRONTEND_URL = process.env.FRONTEND_URL!
 
-async function bachsFetch(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${BACHS_BASE_URL}${path}`, {
+async function paystackFetch(path: string, options: RequestInit = {}) {
+  const res = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
     ...options,
     headers: {
       'Authorization': `Bearer ${SECRET_KEY}`,
@@ -23,11 +19,11 @@ async function bachsFetch(path: string, options: RequestInit = {}) {
   })
 
   const data = await res.json()
-  if (!res.ok) {
-    logger.error({ path, status: res.status, data }, 'Bachs API error')
-    throw { statusCode: 502, message: data.detail ?? 'Payment provider error — please try again' }
+  if (!res.ok || !data.status) {
+    logger.error({ path, status: res.status, data }, 'Paystack API error')
+    throw { statusCode: 502, message: data.message ?? 'Payment provider error — please try again' }
   }
-  return data
+  return data.data
 }
 
 export class BillingService {
@@ -35,28 +31,23 @@ export class BillingService {
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw { statusCode: 404, message: 'User not found' }
 
-    const customer = user.bachsCustomerId
-      ? { customer_id: user.bachsCustomerId }
-      : { email: user.email, name: user.name }
-
-    const session = await bachsFetch('/v1/checkout-sessions', {
+    const session = await paystackFetch('/transaction/initialize', {
       method: 'POST',
       body: JSON.stringify({
-        customer,
-        product_cart: [{ product_id: PRODUCT_ID, quantity: 1 }],
-        success_url: `${FRONTEND_URL}/dashboard?subscribed=true`,
-        cancel_url: `${FRONTEND_URL}/settings`,
+        email: user.email,
+        plan: PLAN_CODE,
+        amount: '150000', // ₦1,500 in kobo — required even with a plan code
+        callback_url: `${FRONTEND_URL}/dashboard?subscribed=true`,
         metadata: { userId },
-        reference: userId,
       }),
     })
 
-    logger.info({ userId, checkoutId: session.checkout_id }, 'Checkout session created')
-    return session
+    logger.info({ userId, reference: session.reference }, 'Checkout initialized')
+    return { checkout_url: session.authorization_url, reference: session.reference }
   }
 
   verifyWebhookSignature(rawBody: string, signature: string): boolean {
-    const expected = crypto.createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest('hex')
+    const expected = crypto.createHmac('sha512', SECRET_KEY).update(rawBody).digest('hex')
     try {
       return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
     } catch {
@@ -65,50 +56,58 @@ export class BillingService {
   }
 
   async handleWebhookEvent(event: any) {
-    logger.info({ type: event.type ?? event.event }, 'Received Bachs webhook event')
+    const { event: eventType, data } = event
+    logger.info({ eventType }, 'Received Paystack webhook event')
 
-    // NOTE: field names here are still best-guess — the confirmed OpenAPI spec
-    // we pulled covers checkout-sessions, not the webhook payload shape itself.
-    // Send a real test event from the Bachs dashboard (Developer Portal →
-    // Webhooks → your endpoint → Send test event) and compare against what
-    // actually arrives before trusting this in production.
-    const eventType = event.type ?? event.event
-    const data = event.data?.object ?? event.data
+    // This Paystack account is shared with CourseVault — only act on events
+    // tied to LeadForge's plan. Everything else is silently ignored.
+    const planCode = data.plan?.plan_code ?? data.plan_code
+    if (planCode && planCode !== PLAN_CODE) {
+      logger.debug({ planCode }, 'Event belongs to a different product — ignoring')
+      return
+    }
+
+    const userId = data.metadata?.userId
 
     switch (eventType) {
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const userId = data.metadata?.userId
-        const expiresAt = data.current_period_end
-          ? new Date(data.current_period_end * 1000)
-          : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000)
-
+      case 'charge.success':
+      case 'subscription.create': {
         if (!userId) {
           logger.warn({ event }, 'Webhook missing metadata.userId — cannot map to user')
           return
         }
-
+        const expiresAt = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000)
         await prisma.user.update({
           where: { id: userId },
           data: {
             subscriptionStatus: 'ACTIVE',
             subscriptionExpiresAt: expiresAt,
-            bachsCustomerId: data.customer_id ?? data.customer ?? undefined,
+            bachsCustomerId: data.customer?.customer_code ?? undefined,
           },
         })
-        logger.info({ userId, expiresAt }, 'Subscription activated/updated')
+        logger.info({ userId, expiresAt }, 'Subscription activated')
         break
       }
 
-      case 'customer.subscription.deleted': {
-        const userId = data.metadata?.userId
-        if (!userId) return
+      case 'subscription.disable':
+      case 'invoice.payment_failed': {
+        // These events reference the subscription's customer, not our
+        // metadata directly — look up by customer code if userId absent.
+        const customerCode = data.customer?.customer_code
+        const user = userId
+          ? { id: userId }
+          : await prisma.user.findFirst({ where: { bachsCustomerId: customerCode } })
+
+        if (!user) {
+          logger.warn({ event }, 'Could not map webhook event to a user')
+          return
+        }
 
         await prisma.user.update({
-          where: { id: userId },
+          where: { id: user.id },
           data: { subscriptionStatus: 'EXPIRED' },
         })
-        logger.info({ userId }, 'Subscription marked expired')
+        logger.info({ userId: user.id }, 'Subscription marked expired')
         break
       }
 
