@@ -46,6 +46,11 @@ export class BillingService {
     return { checkout_url: session.authorization_url, reference: session.reference }
   }
 
+  // TEMP DEBUG — remove once signature verification is confirmed working
+  debugComputeSignature(rawBody: string): string {
+    return crypto.createHmac('sha512', SECRET_KEY).update(rawBody).digest('hex')
+  }
+
   verifyWebhookSignature(rawBody: string, signature: string): boolean {
     const expected = crypto.createHmac('sha512', SECRET_KEY).update(rawBody).digest('hex')
     try {

@@ -20,6 +20,15 @@ export async function billingRoutes(fastify: FastifyInstance) {
     const signature = req.headers['x-paystack-signature'] as string | undefined
     const rawBody = (req as any).rawBody ?? JSON.stringify(req.body)
 
+    // TEMP DEBUG — remove once signature verification is confirmed working
+    fastify.log.info({
+      hasRawBody: !!(req as any).rawBody,
+      rawBodyType: typeof (req as any).rawBody,
+      rawBodyPreview: String(rawBody).slice(0, 100),
+      receivedSignature: signature,
+      computedSignature: svc.debugComputeSignature(rawBody),
+    }, 'WEBHOOK DEBUG')
+
     if (!signature || !svc.verifyWebhookSignature(rawBody, signature)) {
       return reply.code(401).send({ success: false, message: 'Invalid signature' })
     }
