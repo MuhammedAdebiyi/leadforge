@@ -4,12 +4,13 @@ import crypto from 'crypto'
 const logger = createLogger('billing-service')
 
 const BACHS_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.bachs.io/v1'
-  : 'https://sandbox-api.bachs.io/v1'
+  ? 'https://api.bachs.io'
+  : 'https://sandbox-api.bachs.io'
 
 const SECRET_KEY = process.env.BACHS_SECRET_KEY!
 const PRODUCT_ID = process.env.BACHS_PRODUCT_ID!
 const WEBHOOK_SECRET = process.env.BACHS_WEBHOOK_SECRET!
+const FRONTEND_URL = process.env.FRONTEND_URL!
 
 async function bachsFetch(path: string, options: RequestInit = {}) {
   const res = await fetch(`${BACHS_BASE_URL}${path}`, {
@@ -24,7 +25,7 @@ async function bachsFetch(path: string, options: RequestInit = {}) {
   const data = await res.json()
   if (!res.ok) {
     logger.error({ path, status: res.status, data }, 'Bachs API error')
-    throw { statusCode: 502, message: 'Payment provider error — please try again' }
+    throw { statusCode: 502, message: data.detail ?? 'Payment provider error — please try again' }
   }
   return data
 }
@@ -34,24 +35,23 @@ export class BillingService {
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw { statusCode: 404, message: 'User not found' }
 
-    // NOTE: endpoint path inferred from Bachs' documented /v1/ REST pattern
-    // and their SDK's checkout.create() naming — not yet confirmed against
-    // a real successful call. Verify with a sandbox test before trusting
-    // this in production.
-    const session = await bachsFetch('/checkout/sessions', {
+    const customer = user.bachsCustomerId
+      ? { customer_id: user.bachsCustomerId }
+      : { email: user.email, name: user.name }
+
+    const session = await bachsFetch('/v1/checkout-sessions', {
       method: 'POST',
       body: JSON.stringify({
-        product: PRODUCT_ID,
-        billing: 'subscription',
-        tax: 'auto',
-        crypto: true,
-        settlement: 'NGN',
-        customer_email: user.email,
+        customer,
+        product_cart: [{ product_id: PRODUCT_ID, quantity: 1 }],
+        success_url: `${FRONTEND_URL}/dashboard?subscribed=true`,
+        cancel_url: `${FRONTEND_URL}/settings`,
         metadata: { userId },
+        reference: userId,
       }),
     })
 
-    logger.info({ userId, sessionId: session.id }, 'Checkout session created')
+    logger.info({ userId, checkoutId: session.checkout_id }, 'Checkout session created')
     return session
   }
 
@@ -67,47 +67,48 @@ export class BillingService {
   async handleWebhookEvent(event: any) {
     logger.info({ type: event.type ?? event.event }, 'Received Bachs webhook event')
 
-    // NOTE: field names below (event.type, event.data, customer_email,
-    // current_period_end) are best-guess based on common webhook conventions
-    // and Bachs' documented event names. Confirm against a real test webhook
-    // delivery from the Bachs dashboard before going live.
+    // NOTE: field names here are still best-guess — the confirmed OpenAPI spec
+    // we pulled covers checkout-sessions, not the webhook payload shape itself.
+    // Send a real test event from the Bachs dashboard (Developer Portal →
+    // Webhooks → your endpoint → Send test event) and compare against what
+    // actually arrives before trusting this in production.
     const eventType = event.type ?? event.event
     const data = event.data?.object ?? event.data
 
     switch (eventType) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        const email = data.customer_email ?? data.customer?.email
+        const userId = data.metadata?.userId
         const expiresAt = data.current_period_end
           ? new Date(data.current_period_end * 1000)
           : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000)
 
-        if (!email) {
-          logger.warn({ event }, 'Webhook missing customer email — cannot map to user')
+        if (!userId) {
+          logger.warn({ event }, 'Webhook missing metadata.userId — cannot map to user')
           return
         }
 
-        await prisma.user.updateMany({
-          where: { email },
+        await prisma.user.update({
+          where: { id: userId },
           data: {
             subscriptionStatus: 'ACTIVE',
             subscriptionExpiresAt: expiresAt,
-            bachsCustomerId: data.customer ?? data.customer_id ?? undefined,
+            bachsCustomerId: data.customer_id ?? data.customer ?? undefined,
           },
         })
-        logger.info({ email, expiresAt }, 'Subscription activated/updated')
+        logger.info({ userId, expiresAt }, 'Subscription activated/updated')
         break
       }
 
       case 'customer.subscription.deleted': {
-        const email = data.customer_email ?? data.customer?.email
-        if (!email) return
+        const userId = data.metadata?.userId
+        if (!userId) return
 
-        await prisma.user.updateMany({
-          where: { email },
+        await prisma.user.update({
+          where: { id: userId },
           data: { subscriptionStatus: 'EXPIRED' },
         })
-        logger.info({ email }, 'Subscription marked expired')
+        logger.info({ userId }, 'Subscription marked expired')
         break
       }
 
