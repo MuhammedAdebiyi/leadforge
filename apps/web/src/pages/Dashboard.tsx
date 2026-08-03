@@ -7,8 +7,6 @@ import { useAuthStore } from '../stores/auth'
 import { formatDistanceToNow } from 'date-fns'
 import { Jobs } from './Jobs'
 
-// ── Local ui primitives (paper/ink/gold) ──────────────────────────────────────
-
 function Spinner() {
   return (
     <svg className="animate-spin h-5 w-5 text-ink-muted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -18,14 +16,13 @@ function Spinner() {
   )
 }
 
-// Brutalist stat card — hard border, mono number, gold accent for the signal stat
 function StatCard({
   label, value, accent = false,
 }: { label: string; value: string | number; accent?: boolean }) {
   return (
-    <div className={`card p-5 ${accent ? 'bg-gold-soft border-gold' : ''}`}>
-      <p className="label mb-2">{label}</p>
-      <p className={`text-3xl font-display font-bold tracking-tight tabular-nums ${accent ? 'text-rust' : 'text-ink'}`}>
+    <div className={`card p-4 sm:p-5 ${accent ? 'bg-gold-soft border-gold' : ''}`}>
+      <p className="label mb-1.5 sm:mb-2 text-2xs sm:text-xs">{label}</p>
+      <p className={`text-xl sm:text-3xl font-display font-bold tracking-tight tabular-nums ${accent ? 'text-rust' : 'text-ink'}`}>
         {value}
       </p>
     </div>
@@ -50,7 +47,7 @@ const STATUS_DOT: Record<string, string> = {
 
 function StatusTag({ status }: { status: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 tag border-2 ${STATUS_STYLES[status] ?? 'border-ink bg-paper-1 text-ink-dim'}`}>
+    <span className={`inline-flex items-center gap-1.5 tag border-2 shrink-0 ${STATUS_STYLES[status] ?? 'border-ink bg-paper-1 text-ink-dim'}`}>
       {STATUS_DOT[status] && (
         <span className="relative flex h-1.5 w-1.5 shrink-0">
           {status === 'RUNNING' && (
@@ -76,8 +73,6 @@ function ProgressBar({ value }: { value: number }) {
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export function Dashboard() {
   const user = useAuthStore(s => s.user)
   const [showNew, setShowNew] = useState(false)
@@ -98,26 +93,26 @@ export function Dashboard() {
   const firstName = user?.name?.split(' ')[0] ?? 'there'
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8 animate-fade-in">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6 sm:space-y-8 animate-fade-in">
 
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between border-b-3 border-ink pb-6">
+      {/* Header — stacks on mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b-3 border-ink pb-5 sm:pb-6">
         <div>
           <p className="label mb-1">Overview</p>
-          <h1 className="text-3xl font-display font-bold text-ink tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-ink tracking-tight">
             {greeting()}, {firstName}.
           </h1>
         </div>
-        <button onClick={() => setShowNew(true)} className="btn-primary text-sm px-5 py-2.5">
+        <button onClick={() => setShowNew(true)} className="btn-primary text-sm px-5 py-2.5 w-full sm:w-auto justify-center">
           <Plus size={14} /> New job
         </button>
       </div>
 
-      {/* ── Stats ── */}
+      {/* Stats — 2 cols on mobile, 4 on desktop */}
       {isLoading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
           <StatCard label="Active Jobs"       value={stats?.activeJobs ?? 0} />
           <StatCard label="Completed"         value={stats?.completedJobs ?? 0} />
           <StatCard label="Businesses Found"  value={(stats?.totalBusinesses ?? 0).toLocaleString()} />
@@ -125,7 +120,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* ── Recent jobs ── */}
+      {/* Recent jobs */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <p className="label">Recent Jobs</p>
@@ -138,7 +133,7 @@ export function Dashboard() {
         </div>
 
         {recentJobs.length === 0 ? (
-          <div className="card px-6 py-14 text-center">
+          <div className="card px-4 sm:px-6 py-10 sm:py-14 text-center">
             <Star size={28} className="text-gold mx-auto mb-4" fill="currentColor" strokeWidth={0} />
             <p className="font-display font-bold text-ink mb-1">No jobs yet</p>
             <p className="text-ink-muted text-sm mb-5">
@@ -154,19 +149,17 @@ export function Dashboard() {
               <Link
                 key={job.id}
                 to={`/jobs/${job.id}`}
-                className="flex items-center gap-4 px-6 py-4 hover:bg-paper-1 transition-colors group"
+                className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3.5 sm:py-4 hover:bg-paper-1 transition-colors group"
               >
                 <div className="flex-1 min-w-0">
-                  {/* Title row */}
-                  <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                    <span className="font-display font-bold text-ink text-sm">
+                  <div className="flex items-center gap-2 sm:gap-2.5 mb-1.5 flex-wrap">
+                    <span className="font-display font-bold text-ink text-sm truncate max-w-[140px] sm:max-w-none">
                       {job.keyword}
                     </span>
-                    <span className="text-ink-muted text-sm font-mono">· {job.city}</span>
+                    <span className="text-ink-muted text-xs sm:text-sm font-mono truncate">· {job.city}</span>
                     <StatusTag status={job.status} />
                   </div>
 
-                  {/* Progress bar for running jobs */}
                   {job.status === 'RUNNING' && (
                     <div className="mt-2 max-w-xs mb-2">
                       <ProgressBar value={job.progress} />
@@ -176,7 +169,6 @@ export function Dashboard() {
                     </div>
                   )}
 
-                  {/* Meta */}
                   <p className="text-2xs font-mono text-ink-muted">
                     {(job._count?.businesses ?? 0).toLocaleString()} found ·{' '}
                     <span className="text-rust font-semibold">{job.qualifiedBusinesses} qualified</span>
@@ -186,7 +178,7 @@ export function Dashboard() {
 
                 <ArrowRight
                   size={14}
-                  className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hidden sm:block"
                 />
               </Link>
             ))}

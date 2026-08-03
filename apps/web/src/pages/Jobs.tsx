@@ -255,7 +255,7 @@ export function Jobs({ _externalOpen, onClose }: Props = {}) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
               <label className="label">Keyword *</label>
               <input className={inputCls} placeholder="e.g. Hair Salon"
