@@ -1,4 +1,5 @@
 import { prisma, createLogger } from '@leadforge/shared'
+import { sendPaymentConfirmedEmail } from '../email/email.service'
 import crypto from 'crypto'
 
 const logger = createLogger('billing-service')
@@ -46,11 +47,6 @@ export class BillingService {
     return { checkout_url: session.authorization_url, reference: session.reference }
   }
 
-  // TEMP DEBUG — remove once signature verification is confirmed working
-  debugComputeSignature(rawBody: string): string {
-    return crypto.createHmac('sha512', SECRET_KEY).update(rawBody).digest('hex')
-  }
-
   verifyWebhookSignature(rawBody: string, signature: string): boolean {
     const expected = crypto.createHmac('sha512', SECRET_KEY).update(rawBody).digest('hex')
     try {
@@ -82,14 +78,16 @@ export class BillingService {
           return
         }
         const expiresAt = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000)
-        await prisma.user.update({
+        const updated = await prisma.user.update({
           where: { id: userId },
           data: {
             subscriptionStatus: 'ACTIVE',
             subscriptionExpiresAt: expiresAt,
             bachsCustomerId: data.customer?.customer_code ?? undefined,
           },
+          select: { email: true, name: true },
         })
+        await sendPaymentConfirmedEmail(updated.email, updated.name, expiresAt)
         logger.info({ userId, expiresAt }, 'Subscription activated')
         break
       }

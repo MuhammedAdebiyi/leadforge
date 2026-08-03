@@ -11,6 +11,8 @@ import { Jobs } from './pages/Job'
 import { JobDetail } from './pages/JobDetail'
 import { Leads } from './pages/Leads'
 import { Settings } from './pages/Settings'
+import { AccountGate } from './pages/AccountGate'
+import { VerifyEmail } from './pages/VerifyEmail'
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -29,6 +31,8 @@ export default function App() {
           {/* Public Pages */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/account-gate" element={<AccountGate />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
           {/* Authenticated App */}
           <Route element={<Layout />}>

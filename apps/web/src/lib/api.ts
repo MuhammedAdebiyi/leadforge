@@ -16,7 +16,18 @@ api.interceptors.response.use(
   res => res,
   async (err) => {
     const original = err.config
-    if (err.response?.status === 401 && !original._retry) {
+    const status = err.response?.status
+    const reason = err.response?.data?.reason
+
+    // Gating responses — redirect once, regardless of which page triggered it.
+    if ((status === 402 || status === 403) && (reason === 'SUBSCRIPTION_INACTIVE' || reason === 'EMAIL_NOT_VERIFIED')) {
+      if (!window.location.pathname.startsWith('/account-gate')) {
+        window.location.href = `/account-gate?reason=${reason}`
+      }
+      return Promise.reject(err)
+    }
+
+    if (status === 401 && !original._retry) {
       original._retry = true
       try {
         const refreshToken = useAuthStore.getState().refreshToken
@@ -44,6 +55,12 @@ export const authApi = {
   me: () => api.get('/api/auth/me'),
   connectTelegram: (chatId: string) =>
     api.patch('/api/auth/telegram', { chatId }),
+  verifyEmail: (token: string) =>
+    api.post('/api/auth/verify-email', { token }),
+}
+
+export const billingApi = {
+  checkout: () => api.post('/api/billing/checkout'),
 }
 
 export const jobsApi = {

@@ -1,4 +1,4 @@
-import { prisma, publish, QUEUES } from '@leadforge/shared'
+import { prisma, publish, QUEUES, ensureSubscriptionStatusByChatId } from '@leadforge/shared'
 import type { AppLogger } from '@leadforge/shared'
 import { sendTelegramMessage, getUpdates } from './sender'
 
@@ -7,10 +7,43 @@ const STATUS_EMOJI: Record<string, string> = {
   COMPLETED: '✅', FAILED: '❌', CANCELLED: '🚫',
 }
 
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://www.leadforge.cv'
+
 export async function handleCommand(chatId: string, text: string, logger: AppLogger): Promise<void> {
   const command = text.trim().split(/\s+/)[0].toLowerCase()
 
   try {
+    // First, check if this chat ID belongs to any registered account at all.
+    const { status, userId } = await ensureSubscriptionStatusByChatId(chatId)
+
+    if (!userId) {
+      await sendTelegramMessage(
+        chatId,
+        [
+          `👋 This Telegram isn't connected to a LeadForge account yet.`,
+          ``,
+          `Register and subscribe here to start receiving leads:`,
+          `${FRONTEND_URL}/login`,
+        ].join('\n'),
+        logger
+      )
+      return
+    }
+
+    if (status !== 'ACTIVE') {
+      await sendTelegramMessage(
+        chatId,
+        [
+          `⏸️ Your subscription has ended.`,
+          ``,
+          `Resubscribe to keep receiving leads and using bot commands:`,
+          `${FRONTEND_URL}/account-gate`,
+        ].join('\n'),
+        logger
+      )
+      return
+    }
+
     switch (command) {
       case '/status':
         await handleStatus(chatId, logger)
@@ -144,8 +177,6 @@ function formatHelp(): string {
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
-
-// ── Long-polling loop ────────────────────────────────────────────────────────
 
 let offset = 0
 let polling = false
