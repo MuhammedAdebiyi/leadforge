@@ -56,6 +56,31 @@ export class BillingService {
     }
   }
 
+  /**
+   * Looks up the user this webhook event belongs to. Prefers metadata.userId
+   * (set on our own /checkout call), but falls back to matching by customer
+   * email since not every Paystack event type carries our metadata through
+   * (confirmed: subscription.create does not, charge.success does).
+   */
+  private async resolveUserId(data: any): Promise<string | null> {
+    const metaUserId = data.metadata?.userId as string | undefined
+    if (metaUserId) return metaUserId
+
+    const email = data.customer?.email
+    if (email) {
+      const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
+      if (user) return user.id
+    }
+
+    const customerCode = data.customer?.customer_code
+    if (customerCode) {
+      const user = await prisma.user.findFirst({ where: { bachsCustomerId: customerCode }, select: { id: true } })
+      if (user) return user.id
+    }
+
+    return null
+  }
+
   async handleWebhookEvent(event: any) {
     const { event: eventType, data } = event
     logger.info({ eventType }, 'Received Paystack webhook event')
@@ -68,15 +93,15 @@ export class BillingService {
       return
     }
 
-    const userId = data.metadata?.userId
-
     switch (eventType) {
       case 'charge.success':
       case 'subscription.create': {
+        const userId = await this.resolveUserId(data)
         if (!userId) {
-          logger.warn({ event }, 'Webhook missing metadata.userId — cannot map to user')
+          logger.warn({ event }, 'Could not map webhook event to a user')
           return
         }
+
         const expiresAt = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000)
         const updated = await prisma.user.update({
           where: { id: userId },
@@ -94,23 +119,17 @@ export class BillingService {
 
       case 'subscription.disable':
       case 'invoice.payment_failed': {
-        // These events reference the subscription's customer, not our
-        // metadata directly — look up by customer code if userId absent.
-        const customerCode = data.customer?.customer_code
-        const user = userId
-          ? { id: userId }
-          : await prisma.user.findFirst({ where: { bachsCustomerId: customerCode } })
-
-        if (!user) {
+        const userId = await this.resolveUserId(data)
+        if (!userId) {
           logger.warn({ event }, 'Could not map webhook event to a user')
           return
         }
 
         await prisma.user.update({
-          where: { id: user.id },
+          where: { id: userId },
           data: { subscriptionStatus: 'EXPIRED' },
         })
-        logger.info({ userId: user.id }, 'Subscription marked expired')
+        logger.info({ userId }, 'Subscription marked expired')
         break
       }
 
