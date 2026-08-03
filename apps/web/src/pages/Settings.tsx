@@ -199,7 +199,7 @@ export function Settings() {
                     ).toLocaleDateString()}`
                   : ''
               }.`
-            : 'Subscribe for ₦1,500/month to start receiving qualified leads.'}
+            : 'Subscribe for ₦1,600/month to start receiving qualified leads.'}
         </p>
 
 
@@ -218,7 +218,7 @@ export function Settings() {
             }}
             className="btn-primary"
           >
-            Subscribe — ₦1,500/month
+            Subscribe — ₦1,600/month
           </button>
         )}
       </div>

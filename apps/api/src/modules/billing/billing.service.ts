@@ -37,7 +37,7 @@ export class BillingService {
       body: JSON.stringify({
         email: user.email,
         plan: PLAN_CODE,
-        amount: '150000', // ₦1,500 in kobo — required even with a plan code
+        amount: '160000', // ₦1,600 in kobo — required even with a plan code
         callback_url: `${FRONTEND_URL}/dashboard?subscribed=true`,
         metadata: { userId },
       }),

@@ -74,7 +74,7 @@ export function AccountGate() {
 
 
             <p className="text-sm text-ink-muted leading-relaxed">
-              Resubscribe for ₦1,500/month to keep receiving qualified leads
+              Resubscribe for ₦1,600/month to keep receiving qualified leads
               on Telegram.
             </p>
 
@@ -86,7 +86,7 @@ export function AccountGate() {
             >
               {checkoutMutation.isPending
                 ? 'Redirecting…'
-                : 'Resubscribe — ₦1,500/month'}
+                : 'Resubscribe — ₦1,600/month'}
             </button>
 
 
