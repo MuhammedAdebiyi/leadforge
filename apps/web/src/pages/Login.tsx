@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { Star, ArrowRight } from 'lucide-react'
 import { authApi } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
@@ -173,6 +173,14 @@ export function Login() {
                   required
                 />
               </div>
+
+              {mode === 'login' && (
+                <div className="text-right -mt-1">
+                  <Link to="/forgot-password" className="text-xs text-ink-muted hover:text-ink underline underline-offset-2">
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
 
               <button
                 type="submit"

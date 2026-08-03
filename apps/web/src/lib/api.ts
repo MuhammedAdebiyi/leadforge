@@ -57,6 +57,10 @@ export const authApi = {
     api.patch('/api/auth/telegram', { chatId }),
   verifyEmail: (token: string) =>
     api.post('/api/auth/verify-email', { token }),
+  forgotPassword: (email: string) =>
+    api.post('/api/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    api.post('/api/auth/reset-password', { token, password }),
 }
 
 export const billingApi = {

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { sendVerificationEmail } from '../email/email.service'
+import { sendVerificationEmail, sendPasswordResetEmail } from '../email/email.service'
 import { prisma, redis, TTL, createLogger } from '@leadforge/shared'
 import type { RegisterInput, LoginInput } from '@leadforge/shared'
 import type { FastifyInstance } from 'fastify'
@@ -44,6 +44,41 @@ export class AuthService {
     await prisma.user.update({ where: { id: record.userId }, data: { isVerified: true } })
     await prisma.emailVerificationToken.delete({ where: { token } })
 
+    return { success: true }
+  }
+
+  async requestPasswordReset(email: string) {
+    const user = await prisma.user.findUnique({ where: { email } })
+    // Always return success even if no user found — don't leak which
+    // emails are registered.
+    if (!user) return { success: true }
+
+    const token = crypto.randomUUID()
+    await prisma.passwordResetToken.create({
+      data: { token, userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+    })
+
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`
+    await sendPasswordResetEmail(user.email, user.name, resetUrl)
+
+    logger.info({ userId: user.id }, 'Password reset requested')
+    return { success: true }
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const record = await prisma.passwordResetToken.findUnique({ where: { token } })
+    if (!record || record.expiresAt < new Date()) {
+      throw { statusCode: 400, message: 'Reset link is invalid or expired' }
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12)
+    await prisma.user.update({ where: { id: record.userId }, data: { passwordHash } })
+    await prisma.passwordResetToken.delete({ where: { token } })
+
+    // Invalidate all existing sessions on password change — good security practice.
+    await prisma.refreshToken.deleteMany({ where: { userId: record.userId } })
+
+    logger.info({ userId: record.userId }, 'Password reset completed')
     return { success: true }
   }
 

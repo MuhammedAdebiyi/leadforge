@@ -46,3 +46,24 @@ export async function sendPaymentConfirmedEmail(to: string, name: string, expire
     logger.error({ err, to }, 'Failed to send payment confirmation email')
   }
 }
+
+export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string) {
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to,
+      subject: 'Reset your LeadForge password',
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+          <h2>Reset your password, ${name}</h2>
+          <p>Click below to set a new password:</p>
+          <p><a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#111;color:#fff;text-decoration:none;border-radius:4px;">Reset Password</a></p>
+          <p style="color:#666;font-size:13px;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+        </div>
+      `,
+    })
+    logger.info({ to }, 'Password reset email sent')
+  } catch (err) {
+    logger.error({ err, to }, 'Failed to send password reset email')
+  }
+}

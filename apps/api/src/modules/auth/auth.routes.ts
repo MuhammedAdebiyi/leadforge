@@ -49,4 +49,18 @@ export async function authRoutes(fastify: FastifyInstance) {
     const result = await svc.verifyEmail(token)
     return reply.send({ success: true, data: result })
   })
+
+  fastify.post('/forgot-password', async (req, reply) => {
+    const { email } = req.body as { email: string }
+    if (!email) return reply.code(400).send({ success: false, message: 'email required' })
+    const result = await svc.requestPasswordReset(email)
+    return reply.send({ success: true, data: result })
+  })
+
+  fastify.post('/reset-password', async (req, reply) => {
+    const { token, password } = req.body as { token: string; password: string }
+    if (!token || !password) return reply.code(400).send({ success: false, message: 'token and password required' })
+    const result = await svc.resetPassword(token, password)
+    return reply.send({ success: true, data: result })
+  })
 }
