@@ -3,10 +3,12 @@ import { JobsService } from './jobs.service'
 import { createJobSchema, paginationSchema } from '@leadforge/shared'
 import { authenticate } from '../../middleware/auth'
 import { requireActiveSubscription } from '../../middleware/subscription'
+import { requireActiveSubscription } from '../../middleware/subscription'
 
 export async function jobRoutes(fastify: FastifyInstance) {
   const svc = new JobsService()
   fastify.addHook('preHandler', authenticate)
+  fastify.addHook('preHandler', requireActiveSubscription)
   fastify.addHook('preHandler', requireActiveSubscription)
 
   fastify.get('/dashboard', async (req, reply) => {

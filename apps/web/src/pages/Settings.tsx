@@ -14,33 +14,47 @@ export function Settings() {
   const refreshToken = useAuthStore(s => s.refreshToken)
 
   const [chatId, setChatId] = useState(user?.telegramChatId ?? '')
+
   const isLocked = !!user?.telegramChatId
 
   const mutation = useMutation({
     mutationFn: () => authApi.connectTelegram(chatId),
+
     onSuccess: () => {
-      toast.success('Telegram connected — leads will be sent here from now on')
+      toast.success(
+        'Telegram connected — leads will be sent here from now on'
+      )
 
       if (user && accessToken && refreshToken) {
         setAuth(
-          { ...user, telegramChatId: chatId },
+          {
+            ...user,
+            telegramChatId: chatId,
+          },
           accessToken,
           refreshToken
         )
       }
     },
+
     onError: (e: any) =>
-      toast.error(e.response?.data?.message ?? 'Failed'),
+      toast.error(
+        e.response?.data?.message ?? 'Failed to connect Telegram'
+      ),
   })
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <div>
-        <p className="label mb-1">Settings</p>
-        <h1 className="text-2xl font-bold text-chalk tracking-tight">
-          Account Settings
+        <h1 className="text-2xl font-semibold text-chalk">
+          Settings
         </h1>
+
+        <p className="text-sm text-chalk-muted mt-1">
+          Account Settings
+        </p>
       </div>
+
 
       {/* Profile */}
       <div className="card p-6 space-y-4">
@@ -50,7 +64,10 @@ export function Settings() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Name</label>
+            <label className="label">
+              Name
+            </label>
+
             <input
               className="input opacity-60"
               value={user?.name ?? ''}
@@ -59,7 +76,10 @@ export function Settings() {
           </div>
 
           <div>
-            <label className="label">Email</label>
+            <label className="label">
+              Email
+            </label>
+
             <input
               className="input opacity-60"
               value={user?.email ?? ''}
@@ -68,6 +88,7 @@ export function Settings() {
           </div>
         </div>
       </div>
+
 
       {/* Telegram */}
       <div className="card p-6">
@@ -78,19 +99,33 @@ export function Settings() {
         {isLocked ? (
           <>
             <p className="text-sm text-chalk-muted mb-4 leading-relaxed">
-              Your leads are sent to this Telegram chat permanently. This
-              can't be changed — contact support if you need it updated.
+              Your leads are sent to this Telegram chat permanently.
+              This can't be changed — contact support if you need it
+              updated.
             </p>
 
             <div className="flex items-center gap-2 text-xs text-signal mb-2 bg-signal/5 border border-signal/20 rounded-lg px-3 py-2.5">
               <CheckCircle size={13} />
-              Connected · {user!.telegramChatId}
+
+              Connected · {user?.telegramChatId}
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-chalk-muted">
+
+            <div className="flex items-center gap-2 text-xs text-chalk-muted mb-3">
               <Lock size={12} />
+
               Locked
             </div>
+
+
+            <a
+              href="https://t.me/leadforge_scraper_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-chalk hover:text-signal transition-colors underline underline-offset-2"
+            >
+              Message @leadforge_scraper_bot ↗
+            </a>
           </>
         ) : (
           <>
@@ -98,6 +133,7 @@ export function Settings() {
               Connect your Telegram to receive qualified leads instantly.
               This can only be set once, so make sure it's the right chat
               before saving.{' '}
+              
               <a
                 href="https://t.me/userinfobot"
                 target="_blank"
@@ -108,6 +144,7 @@ export function Settings() {
               </a>
             </p>
 
+
             <div className="flex gap-2">
               <input
                 className="input"
@@ -115,6 +152,7 @@ export function Settings() {
                 value={chatId}
                 onChange={e => setChatId(e.target.value)}
               />
+
 
               <button
                 onClick={() => {
@@ -134,6 +172,7 @@ export function Settings() {
                 ) : (
                   <>
                     <Send size={13} />
+
                     Save
                   </>
                 )}
@@ -143,11 +182,13 @@ export function Settings() {
         )}
       </div>
 
+
       {/* Billing */}
       <div className="card p-6">
         <p className="text-xs font-semibold text-chalk-muted uppercase tracking-widest mb-1">
           Billing
         </p>
+
 
         <p className="text-sm text-chalk-muted mb-4 leading-relaxed">
           {user?.subscriptionStatus === 'ACTIVE'
@@ -161,13 +202,20 @@ export function Settings() {
             : 'Subscribe for ₦1,500/month to start receiving qualified leads.'}
         </p>
 
+
         {user?.subscriptionStatus !== 'ACTIVE' && (
           <button
-            onClick={() =>
-              billingApi.checkout().then(res => {
-                window.location.href = res.data.data.checkout_url
-              })
-            }
+            onClick={async () => {
+              try {
+                const res = await billingApi.checkout()
+                window.location.href =
+                  res.data.data.checkout_url
+              } catch {
+                toast.error(
+                  'Unable to start checkout'
+                )
+              }
+            }}
             className="btn-primary"
           >
             Subscribe — ₦1,500/month
@@ -175,11 +223,13 @@ export function Settings() {
         )}
       </div>
 
+
       {/* Danger */}
       <div className="card p-6">
         <p className="text-xs font-semibold text-chalk-muted uppercase tracking-widest mb-4">
           Danger Zone
         </p>
+
 
         <button
           onClick={() => {

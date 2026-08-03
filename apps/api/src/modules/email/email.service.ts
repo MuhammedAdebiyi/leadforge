@@ -36,7 +36,8 @@ export async function sendPaymentConfirmedEmail(to: string, name: string, expire
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2>You're all set, ${name}</h2>
           <p>Your payment was confirmed and your LeadForge account is active.</p>
-          <p>Next: connect your Telegram in Settings to start receiving leads.</p>
+          <p>Next: connect your Telegram in Settings, then message our bot to start receiving leads:</p>
+          <p><a href="https://t.me/leadforge_scraper_bot" style="color:#111;font-weight:600;">@leadforge_scraper_bot ↗</a></p>
           <p style="color:#666;font-size:13px;">Your subscription renews on ${expiresAt.toLocaleDateString()}.</p>
         </div>
       `,
