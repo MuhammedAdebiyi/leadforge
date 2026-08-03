@@ -45,6 +45,7 @@ export async function buildApp() {
   await fastify.register(cors, {
     origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   })
 
   await fastify.register(rateLimit, {
