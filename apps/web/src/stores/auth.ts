@@ -6,6 +6,8 @@ interface User {
   email: string
   name: string
   telegramChatId: string | null
+  subscriptionStatus: 'NONE' | 'ACTIVE' | 'EXPIRED'
+  subscriptionExpiresAt: string | null
 }
 
 interface AuthStore {

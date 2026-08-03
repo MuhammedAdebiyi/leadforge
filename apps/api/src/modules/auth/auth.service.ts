@@ -16,7 +16,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(input.password, 12)
     const user = await prisma.user.create({
       data: { email: input.email, passwordHash, name: input.name },
-      select: { id: true, email: true, name: true, createdAt: true },
+      select: { id: true, email: true, name: true, createdAt: true, subscriptionStatus: true, subscriptionExpiresAt: true },
     })
 
     const verificationToken = crypto.randomUUID()
@@ -92,7 +92,10 @@ export class AuthService {
     logger.info({ userId: user.id }, 'User logged in')
     const tokens = await this.generateTokens(user.id)
     return {
-      user: { id: user.id, email: user.email, name: user.name, telegramChatId: user.telegramChatId },
+      user: {
+        id: user.id, email: user.email, name: user.name, telegramChatId: user.telegramChatId,
+        subscriptionStatus: user.subscriptionStatus, subscriptionExpiresAt: user.subscriptionExpiresAt,
+      },
       ...tokens,
     }
   }
@@ -116,6 +119,7 @@ export class AuthService {
       select: {
         id: true, email: true, name: true, telegramChatId: true,
         isVerified: true, createdAt: true,
+        subscriptionStatus: true, subscriptionExpiresAt: true,
         _count: { select: { jobs: true } },
       },
     })
