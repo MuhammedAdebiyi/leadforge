@@ -1,4 +1,4 @@
-import { createWorker, prisma, QUEUES } from '@leadforge/shared'
+import { createWorker, prisma, QUEUES, ensureSubscriptionStatusByChatId } from '@leadforge/shared'
 import { sendTelegramMessage } from './sender'
 import { startCommandPolling } from './commands'
 import { createLogger } from '@leadforge/shared'
@@ -20,6 +20,14 @@ async function processMessage(
   const { businessId, chatId }: TelegramMessage = JSON.parse(msg.content.toString())
 
   logger.info({ businessId, chatId }, '📨 Sending Telegram notification')
+
+  // Guard against a subscription lapsing mid-flight — a job queued while
+  // ACTIVE shouldn't keep delivering leads after the customer's sub ends.
+  const { status } = await ensureSubscriptionStatusByChatId(chatId)
+  if (status !== 'ACTIVE') {
+    logger.info({ businessId, chatId, status }, 'Subscription not active — skipping delivery')
+    return
+  }
 
   // Idempotency — check if already sent successfully
   const alreadySent = await prisma.telegramLog.findFirst({

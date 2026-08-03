@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { CheckCircle, Send, Lock } from 'lucide-react'
-import { authApi } from '../lib/api'
+import { authApi, billingApi } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import toast from 'react-hot-toast'
 import { Spinner } from '../components/ui'
@@ -106,6 +106,24 @@ export function Settings() {
               </button>
             </div>
           </>
+        )}
+      </div>
+
+      {/* Billing */}
+      <div className="card p-6">
+        <p className="text-xs font-semibold text-chalk-muted uppercase tracking-widest mb-1">Billing</p>
+        <p className="text-sm text-chalk-muted mb-4 leading-relaxed">
+          {user?.subscriptionStatus === 'ACTIVE'
+            ? `Your subscription is active${user.subscriptionExpiresAt ? ` — renews ${new Date(user.subscriptionExpiresAt).toLocaleDateString()}` : ''}.`
+            : 'Subscribe for ₦1,500/month to start receiving qualified leads.'}
+        </p>
+        {user?.subscriptionStatus !== 'ACTIVE' && (
+          <button
+            onClick={() => billingApi.checkout().then(res => { window.location.href = res.data.data.checkout_url })}
+            className="btn-primary"
+          >
+            Subscribe — ₦1,500/month
+          </button>
         )}
       </div>
 
