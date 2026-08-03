@@ -40,7 +40,7 @@ export async function buildApp() {
     runFirst: true,
   })
 
-  const allowedOrigins = [env.FRONTEND_URL, 'http://localhost:5173'].filter(Boolean)
+  const allowedOrigins = [env.FRONTEND_URL, 'https://leadforge.cv', 'http://localhost:5173'].filter(Boolean)
 
   await fastify.register(cors, {
     origin: allowedOrigins,
