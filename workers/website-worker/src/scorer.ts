@@ -1,5 +1,13 @@
-// workers/search-worker/src/scorer.ts
-import type { RawBusiness } from './extractor'
+// workers/website-worker/src/scorer.ts
+interface RawBusiness {
+  hasWebsite: boolean
+  phone: string | null
+  reviewCount: number | null
+  rating: number | null
+  address: string | null
+  category: string | null
+  name: string
+}
 
 const CHAIN_KEYWORDS = [
   'mcdonald', 'kfc', "domino's", 'dominos', 'chicken republic',

@@ -1,4 +1,3 @@
-// workers/search-worker/src/scorer.ts
 import type { RawBusiness } from './extractor'
 
 const CHAIN_KEYWORDS = [

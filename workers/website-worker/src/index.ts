@@ -35,7 +35,14 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
     return
   }
 
-  const result = await checkWebsite(business.mapsUrl ?? '', business.name, job.city, logger)
+  const result = await checkWebsite(
+    business.mapsUrl ?? '',
+    business.name,
+    job.city,
+    business.phone,
+    business.address,
+    logger
+  )
 
   if (result.scrapedEmail) {
     logger.info({ businessId, email: result.scrapedEmail }, '📧 Email found in social bio')
@@ -48,17 +55,20 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
         hasWebsite: true,
         hasSocialPresence: result.hasSocialPresence,
         website: result.url,
+        notes: result.reason,
         status: 'ARCHIVED',
         leadScore: 0,
       },
     })
-    logger.debug({ businessId, url: result.url }, 'Has website — archived')
+    logger.debug({ businessId, url: result.url, confidence: result.confidence, reason: result.reason }, 'Has website — archived')
     return
   }
 
-  // Compute the real lead score now, using the authoritative hasWebsite
-  // result we just determined — never trust search-worker's rough guess.
   const leadScore = scoreLead({ ...business, hasWebsite: false })
+
+  const notes = result.possibleUrl
+    ? `Possible website (confidence ${result.confidence}): ${result.possibleUrl} — ${result.reason}`
+    : result.reason
 
   await prisma.business.update({
     where: { id: businessId },
@@ -67,13 +77,14 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
       hasSocialPresence: result.hasSocialPresence,
       website: null,
       email: result.scrapedEmail,
+      notes,
       leadScore,
       status: 'VALIDATED',
     },
   })
 
   logger.debug(
-    { businessId, name: business.name, hasSocialPresence: result.hasSocialPresence, hasScrapedEmail: !!result.scrapedEmail },
+    { businessId, name: business.name, hasSocialPresence: result.hasSocialPresence, hasScrapedEmail: !!result.scrapedEmail, confidence: result.confidence },
     'Validated — no website confirmed'
   )
 
@@ -100,8 +111,6 @@ async function processMessage(msg: ConsumeMessage, _channel: Channel, logger: Ap
 
   logger.info({ businessId, name: business.name, score: business.leadScore }, '✅ Lead qualified — matches ICP')
 
-  // Skip Hunter enrichment if we already have an email from the social bio scrape —
-  // no point burning an API credit on a lookup that's already answered.
   if (job.useEmailEnrichment && !result.scrapedEmail) {
     publish(QUEUES.EMAIL, { businessId, jobId }, businessId)
     logger.debug({ businessId }, 'Queued for email enrichment')
