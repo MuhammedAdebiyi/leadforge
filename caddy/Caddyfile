@@ -1,3 +1,7 @@
 api.leadforge.cv {
     reverse_proxy leadforge-api:4000
 }
+
+169.58.108.115.sslip.io {
+    reverse_proxy notificationhub-api-blue:8080
+}
