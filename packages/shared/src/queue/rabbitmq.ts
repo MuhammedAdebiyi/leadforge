@@ -27,7 +27,8 @@ function sleep(ms: number) {
 
 export async function connectRabbitMQ(
   logger: AppLogger,
-  extraQueues: string[] = []
+  extraQueues: string[] = [],
+  onChannelReady?: (channel: Channel) => Promise<void> | void
 ): Promise<Channel> {
   while (true) {
     try {
@@ -47,10 +48,17 @@ export async function connectRabbitMQ(
       connection.on('close', () => {
         logger.warn('RabbitMQ closed — reconnecting in 5s')
         _channel = null
-        connectRabbitMQ(logger, extraQueues)
+        connectRabbitMQ(logger, extraQueues, onChannelReady)
           .then(ch => { _channel = ch })
           .catch(err => logger.error({ err }, 'Reconnect failed'))
       })
+
+      // Re-register consumers (and any other per-channel setup) on EVERY
+      // (re)connection. Previously consumers were only registered on the
+      // first channel; after a reconnect the worker kept running on a fresh
+      // channel with zero consumers, so messages piled up unconsumed and
+      // jobs stayed stuck in PENDING forever.
+      await onChannelReady?.(channel)
 
       _channel = channel
       logger.info(' RabbitMQ connected (CloudAMQP)')
