@@ -152,7 +152,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
     await prisma.refreshToken.create({ data: { token: refreshToken, userId, expiresAt } })
-    await redis.setex(`session:${userId}`, TTL.SESSION, userId)
+    await redis.set(`session:${userId}`, userId, { ex: TTL.SESSION })
 
     return { accessToken, refreshToken }
   }

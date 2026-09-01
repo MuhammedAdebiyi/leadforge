@@ -48,7 +48,7 @@ export class Deduplicator {
     this.seen.add(placeId)
     const redisKey = `dedup:${this.jobId}:${placeId}`
     // TTL 24h — enough for a job to complete
-    await this.redis.setex(redisKey, 60 * 60 * 24, '1')
+    await this.redis.set(redisKey, '1', { ex: 60 * 60 * 24 })
   }
 
   async preloadFromDatabase(): Promise<void> {

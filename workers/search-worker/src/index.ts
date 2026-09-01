@@ -48,10 +48,10 @@ async function processJob(msg: ConsumeMessage, _channel: Channel, logger: AppLog
 
       onProgress: async (processed, total, currentStep) => {
         const pct = total > 0 ? Math.round((processed / total) * 100) : 0
-        await redis.setex(
+        await redis.set(
           `job:progress:${jobId}`,
-          TTL.JOB_PROGRESS,
-          JSON.stringify({ processed, total, currentStep, pct })
+          JSON.stringify({ processed, total, currentStep, pct }),
+          { ex: TTL.JOB_PROGRESS }
         )
         if (processed % 10 === 0) {
           await prisma.job.update({
